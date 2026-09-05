@@ -1,0 +1,251 @@
+{
+  "brand": {
+    "name": "BLOOM & BREW",
+    "tagline": "Coffee. Flowers. A Happier You.",
+    "concept": "London-based luxury coffee shop & boutique florist concept. You came for your morning coffee, but you can also make someone else's morning brighter.",
+    "location": "Bermondsey Street & Tower Bridge, London SE1",
+    "email": "hello@bloomandbrew.london",
+    "instagram": "@bloomandbrew",
+    "vibe": "Awwwards-level romantic London editorial, luxury lifestyle magazine meets botanical coffee bar."
+  },
+  "colors": {
+    "palette_name": "London Rose & Whipped Cream (Editorial Blush)",
+    "surfaces": [
+      {
+        "name": "page",
+        "kind": "solid",
+        "bg": "#F7E9E4",
+        "on_bg": "#2C2422",
+        "on_bg_muted": "#6E5E5A"
+      },
+      {
+        "name": "panel_cream",
+        "kind": "solid",
+        "bg": "#FFF8F4",
+        "on_bg": "#2C2422",
+        "on_bg_muted": "#756460"
+      },
+      {
+        "name": "panel_rose_mist",
+        "kind": "solid",
+        "bg": "#F3DDD7",
+        "on_bg": "#2C2422",
+        "on_bg_muted": "#6E5E5A"
+      },
+      {
+        "name": "panel_warm_sand",
+        "kind": "solid",
+        "bg": "#F9EFEB",
+        "on_bg": "#2C2422",
+        "on_bg_muted": "#756460"
+      },
+      {
+        "name": "inverse_dark",
+        "kind": "solid",
+        "bg": "#2C2422",
+        "on_bg": "#FFF8F4",
+        "on_bg_muted": "#DFA4A5"
+      },
+      {
+        "name": "blush_pill_cta",
+        "kind": "solid",
+        "bg": "#E7B5B2",
+        "on_bg": "#2C2422",
+        "on_bg_muted": "#4B3D3B"
+      },
+      {
+        "name": "blush_pill_hover",
+        "kind": "solid",
+        "bg": "#DFA4A5",
+        "on_bg": "#2C2422",
+        "on_bg_muted": "#3D3230"
+      },
+      {
+        "name": "hero",
+        "kind": "image",
+        "contrast_against": "#1A1514",
+        "guarantee": "scrim: linear-gradient(to right, rgba(28,22,21,0.85) 0%, rgba(28,22,21,0.5) 45%, rgba(28,22,21,0.2) 100%)",
+        "on_bg": "#FFF8F4",
+        "on_bg_muted": "#F3DDD7",
+        "roles": {
+          "accent_script": "#F7D8D6",
+          "link": "#FFF8F4",
+          "highlight": "#E7B5B2"
+        }
+      },
+      {
+        "name": "nav_sticky",
+        "kind": "glass",
+        "contrast_against": "#F7E9E4",
+        "guarantee": "solid blur background: bg-[#F7E9E4]/90 backdrop-blur-md border-b border-[#2C2422]/10",
+        "on_bg": "#2C2422",
+        "on_bg_muted": "#6E5E5A",
+        "roles": {
+          "active_link": "#2C2422",
+          "badge_count": "#FFF8F4"
+        }
+      }
+    ],
+    "accent": "#E7B5B2",
+    "on_accent": "#2C2422",
+    "border_subtle": "rgba(44, 36, 34, 0.12)",
+    "border_strong": "rgba(44, 36, 34, 0.25)"
+  },
+  "typography": {
+    "families": {
+      "heading": "'Playfair Display Variable', Georgia, serif",
+      "body": "'DM Sans Variable', -apple-system, sans-serif",
+      "script_accent": "'Meow Script', 'Playfair Display Variable', cursive",
+      "serif_sub": "'Lora Variable', serif"
+    },
+    "scale_px": {
+      "display": 58,
+      "h1": 46,
+      "h2": 34,
+      "h3": 24,
+      "body": 16,
+      "caption": 14
+    },
+    "letter_spacing": {
+      "editorial_heading": "0.15em",
+      "micro_label": "0.22em",
+      "body": "0.01em"
+    },
+    "fontsource_imports": [
+      "@import \"@fontsource-variable/playfair-display\";",
+      "@import \"@fontsource-variable/dm-sans\";",
+      "@import \"@fontsource-variable/lora\";"
+    ]
+  },
+  "entry_surfaces": {
+    "/": "cinematic split hero — dark gradient text reveal left with signature iced latte floral visual right, floating 4-moment category grid beneath",
+    "/menu": "editorial collection grid — numbered boutique items 01-10 with clean categories and botanical customisation drawers",
+    "/our-story": "magazine chapter layout — numbered manifesto, London florist polaroids and four founding craft pillars",
+    "/gallery": "curated editorial masonry — filtered moments of coffee cups tied with baby sprigs and London morning sunlight",
+    "/find-us": "romantic London storefront guide — Bermondsey Street address, golden-hour photo, stylised map and live hours",
+    "/faq": "delicate serif accordion — answers on fresh blooms, floral cup ties, delivery postcodes and event catering",
+    "/order": "bespoke order builder — step-by-step beverage, milk, flower posy colour, handwritten gift note and instant basket drawer"
+  },
+  "visual_enhancers": {
+    "polaroid_cards": "border-8 border-white shadow-[0_12px_32px_rgba(44,36,34,0.08)] rotate-[-1.5deg] hover:rotate-0 transition-transform duration-500",
+    "handwritten_hearts": "Meow Script accents with decorative heart glyphs ♡ woven into overlines and subtitles",
+    "editorial_borders": "1px solid rgba(44, 36, 34, 0.12) creating crisp linen-grid compartments",
+    "marquee_ribbon": "Slow drifting ribbon: 'COFFEE ♡ FRESH BLOOMS ♡ BERMONDSEY SE1 ♡ TIED WITH TWINE ♡ MORNING JOY ♡'",
+    "luxury_pill_buttons": "rounded-full px-7 py-3 uppercase tracking-widest text-xs font-medium bg-[#E7B5B2] text-[#2C2422] hover:bg-[#DFA4A5] transition-all hover:shadow-md active:scale-95",
+    "flower_cup_tie_badge": "Subtle badge highlight for signature feature: 'Includes hand-tied fresh sprig'"
+  },
+  "motion": {
+    "engine": "motion/react (framer-motion)",
+    "reveals": {
+      "hero_text": {
+        "initial": { "opacity": 0, "y": 24 },
+        "animate": { "opacity": 1, "y": 0 },
+        "transition": { "duration": 0.8, "ease": [0.16, 1, 0.3, 1] }
+      },
+      "stagger_cards": {
+        "initial": { "opacity": 0, "y": 20 },
+        "whileInView": { "opacity": 1, "y": 0 },
+        "viewport": { "once": true, "margin": "-50px" },
+        "transition": { "duration": 0.6, "staggerChildren": 0.1 }
+      },
+      "hover_card_lift": "hover:-translate-y-1.5 transition-transform duration-400 ease-out",
+      "image_subtle_zoom": "overflow-hidden group-hover:scale-105 transition-transform duration-700 ease-out"
+    }
+  },
+  "layouts": {
+    "header": {
+      "type": "Sticky editorial 3-column navigation",
+      "left": "Links: HOME, MENU, OUR STORY, GALLERY",
+      "center": "Handwritten script 'Bloom & Brew' logo + 'COFFEE ♡ FLOWERS ♡ A HAPPIER YOU' microtext",
+      "right": "FIND US link + Blush pill 'ORDER NOW' + Shopping Bag counter icon with drawer trigger"
+    },
+    "home_sections": [
+      "Hero with cinematic iced latte & London floral stall visual, masked reveal 'GOOD COFFEE BRIGHTER MORNINGS'",
+      "Line-icon 4-column feature strip: Specialty Roasts, Fresh Morning Blooms, Hand-Tied Cup Twine, London Same-Day Delivery",
+      "Editorial Category Grid: 'Find Your Perfect Moment ♡' (01 Coffee & Bloom Combo, 02 Artisan Brews, 03 Petite Posies, 04 Gift Boxes)",
+      "Signature Offerings with customizer trigger & £ price badges",
+      "The 'Make Someone Else's Day' interactive gifting preview",
+      "Polaroid Instagram Collage 'SHARE THE LOVE @bloomandbrew'",
+      "Warm Sand & Rose Footer with newsletter signup, live hours, London map link and copyright"
+    ],
+    "menu_page": {
+      "filter_tabs": ["All Offerings", "Coffee & Flower Combos", "Specialty Coffee", "Fresh Blooms & Cups", "Bakery & Treats"],
+      "grid_style": "Editorial numbered cards 01-10 with generous padding, tags, customization modal button and add-to-bag"
+    },
+    "order_flow": {
+      "customizer_modal": "Select Coffee type (Oat/Almond/Whole), Flower sprig hue (Blush Rose, Lavender, Sunny Mimosa, Wild Olive), Gift Tag message, and Add to Basket",
+      "basket_drawer": "Slide-over drawer with itemised summary, promo discount code (e.g. 'BLOOM10' or 'MORNINGLOVE' for 10% / 5% off), subtotal, delivery or pickup selector, and instant mock checkout saving to database",
+      "checkout_success": "Aesthetic confirmation receipt with order number, pickup time estimate, and celebration floral motif"
+    }
+  },
+  "image_urls": {
+    "hero_iced_latte": {
+      "url": "https://images.unsplash.com/photo-1527678357412-ef45dfbd9ecc?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMzV8MHwxfHNlYXJjaHwxfHxpY2VkJTIwbGF0dGUlMjBmbG93ZXJzJTIwYWVzdGhldGljfGVufDB8fHx8MTc4ODYwMTYwM3ww&ixlib=rb-4.1.0&q=85",
+      "alt": "Iced latte on warm wooden London terrace table",
+      "placement": "Home hero and story imagery"
+    },
+    "iced_coffee_overhead": {
+      "url": "https://images.unsplash.com/photo-1566656117208-c23e67f4ce8c?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMzV8MHwxfHNlYXJjaHwyfHxpY2VkJTIwbGF0dGUlMjBmbG93ZXJzJTIwYWVzdGhldGljfGVufDB8fHx8MTc4ODYwMTYwM3ww&ixlib=rb-4.1.0&q=85",
+      "alt": "Iced artisan coffee with textured foam",
+      "placement": "Menu and category highlight"
+    },
+    "petite_flower_bouquet_peach": {
+      "url": "https://images.unsplash.com/photo-1622658641558-235f26dd270b?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1ODB8MHwxfHNlYXJjaHwxfHxzbWFsbCUyMGJvdXF1ZXQlMjBmbG93ZXJzJTIwY29mZmVlJTIwZ2lmdHxlbnwwfHx8fDE3ODg2MDE2MDN8MA&ixlib=rb-4.1.0&q=85",
+      "alt": "Bouquet of delicate dried and fresh flowers wrapped in peach paper with ribbon",
+      "placement": "Category card 'Petite Posies' & Flower Gift Combo"
+    },
+    "coffee_cup_flower_arrangement": {
+      "url": "https://images.unsplash.com/photo-1572470310837-bf991f19d3d3?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1ODB8MHwxfHNlYXJjaHwzfHxzbWFsbCUyMGJvdXF1ZXQlMjBmbG93ZXJzJTIwY29mZmVlJTIwZ2lmdHxlbnwwfHx8fDE3ODg2MDE2MDN8MA&ixlib=rb-4.1.0&q=85",
+      "alt": "Fresh dark roast coffee in porcelain cup beside fresh lilac blooms",
+      "placement": "Home featured signature item & our story manifesto"
+    },
+    "hand_holding_peony_posy": {
+      "url": "https://images.unsplash.com/photo-1557925923-6885735abfb1?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1ODB8MHwxfHNlYXJjaHwyfHxzbWFsbCUyMGJvdXF1ZXQlMjBmbG93ZXJzJTIwY29mZmVlJTIwZ2lmdHxlbnwwfHx8fDE3ODg2MDE2MDN8MA&ixlib=rb-4.1.0&q=85",
+      "alt": "Hand holding craft paper wrapped fresh white and blush peony bouquet",
+      "placement": "Our story and gallery polaroids"
+    },
+    "cup_on_table": {
+      "url": "https://images.unsplash.com/photo-1629170564024-1ed6c5b9ce45?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMzV8MHwxfHNlYXJjaHwzfHxpY2VkJTIwbGF0dGUlMjBmbG93ZXJzJTIwYWVzdGhldGljfGVufDB8fHx8MTc4ODYwMTYwM3ww&ixlib=rb-4.1.0&q=85",
+      "alt": "Coffee cup on sunlit cafe table",
+      "placement": "Gallery and FAQ header"
+    },
+    "rustic_bouquet_craft_paper": {
+      "url": "https://images.unsplash.com/photo-1618286609899-8c9e00b6367a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1ODB8MHwxfHNlYXJjaHw0fHxzbWFsbCUyMGJvdXF1ZXQlMjBmbG93ZXJzJTIwY29mZmVlJTIwZ2lmdHxlbnwwfHx8fDE3ODg2MDE2MDN8MA&ixlib=rb-4.1.0&q=85",
+      "alt": "Dried botanical posy in kraft paper with twine",
+      "placement": "Find us card and Instagram feed collage"
+    }
+  },
+  "testing_and_accessibility": {
+    "data_testids": {
+      "nav_home": "nav-link-home",
+      "nav_menu": "nav-link-menu",
+      "nav_story": "nav-link-our-story",
+      "nav_gallery": "nav-link-gallery",
+      "nav_find_us": "nav-link-find-us",
+      "nav_faq": "nav-link-faq",
+      "nav_order_btn": "nav-order-now-button",
+      "cart_trigger": "nav-cart-trigger-button",
+      "cart_drawer": "cart-slideover-drawer",
+      "cart_checkout_btn": "cart-checkout-button",
+      "cart_promo_input": "cart-promo-code-input",
+      "cart_promo_submit": "cart-promo-apply-button",
+      "product_card": "product-card-{id}",
+      "product_customize_btn": "product-customize-button-{id}",
+      "product_quick_add": "product-quick-add-button-{id}",
+      "category_filter_tab": "menu-filter-tab-{category}",
+      "faq_accordion_item": "faq-accordion-item-{index}",
+      "order_form_submit": "order-customizer-add-to-cart-button"
+    },
+    "wcag_compliance": "All normal text achieves >= 4.5:1 against respective surfaces (#2C2422 on #F7E9E4 is 11.2:1; on #FFF8F4 is 14.1:1; #FFF8F4 on #2C2422 is 14.1:1). Button labels on #E7B5B2 use #2C2422 achieving 8.3:1."
+  },
+  "instructions_to_main_agent": [
+    "1. App is farm-ts template (FastAPI backend + Vite/React 19 frontend). Ensure all frontend code is typed TypeScript (.tsx) using lucide-react icons.",
+    "2. Set index.html title to 'BLOOM & BREW | London Coffee & Floral Concept SE1'.",
+    "3. Set up index.css with the defined blush, rose, cream, and dark espresso CSS tokens and font variables.",
+    "4. Implement all specified routes in App.tsx: / (Home), /menu (Menu with filtering & customization), /our-story (Manifesto & pillars), /gallery (Masonry photo filters), /find-us (Bermondsey map, hours, directions), /faq (Accordion), /order (Interactive builder & basket flow).",
+    "5. Provide a rich database-backed API in backend/routers/order.py for saving orders, retrieving menu items, and handling promo codes (e.g. 'BLOOM10' for 10% off, 'MORNINGLOVE' for £2.50 off). Include mock checkout confirmation with persisted order history in MongoDB.",
+    "6. Include the signature BLOOM & BREW bespoke option in customizers: adding a hand-tied dried or fresh mini flower sprig to any coffee cup.",
+    "7. Implement the working slide-over basket drawer accessible from anywhere with live item count badge, promo code validation, item removal, quantity adjustment, and mock checkout dialog.",
+    "8. Ensure comprehensive data-testid attributes on all interactive elements as specified in design_guidelines.json."
+  ]
+}
