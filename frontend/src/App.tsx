@@ -14,6 +14,8 @@ import Gallery from "@/pages/Gallery";
 import FindUs from "@/pages/FindUs";
 import Faq from "@/pages/Faq";
 import Order from "@/pages/Order";
+import OrderSuccess from "@/pages/OrderSuccess";
+import Track from "@/pages/Track";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -49,6 +51,8 @@ export default function App() {
               <Route path="/find-us" element={<FindUs />} />
               <Route path="/faq" element={<Faq />} />
               <Route path="/order" element={<Order />} />
+              <Route path="/order/success" element={<OrderSuccess />} />
+              <Route path="/track" element={<Track />} />
               <Route path="*" element={<Home />} />
             </Routes>
           </motion.main>

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { motion } from "motion/react";
 import { toast } from "sonner";
@@ -11,6 +12,7 @@ import { HeartDoodle } from "@/components/Decor";
 import ProductCard from "@/components/ProductCard";
 import CustomizeDialog from "@/components/CustomizeDialog";
 import { customisationLabel } from "@/components/CartDrawer";
+import type { CheckoutSessionResponse } from "@/lib/orders";
 
 interface OrderResponse {
   id: string;
@@ -36,24 +38,34 @@ export default function Order() {
   const [pickup, setPickup] = useState("asap");
   const [confirmed, setConfirmed] = useState<OrderResponse | null>(null);
 
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    if (searchParams.get("cancelled")) {
+      toast.error("Payment cancelled — your basket is still here whenever you're ready ♡");
+    }
+  }, [searchParams]);
+
+  const buildPayload = () => ({
+    items: items.map((i) => ({
+      product_id: i.productId,
+      quantity: i.quantity,
+      customisation: {
+        coffee: i.customisation.coffee ?? null,
+        milk: i.customisation.milk ?? null,
+        flowers: i.customisation.flowers ?? null,
+        flower_branch: i.customisation.flowerBranch,
+        gift_card: i.customisation.giftCard,
+        gift_note: i.customisation.giftNote ?? null,
+      },
+    })),
+    customer: { name, email, pickup_time: pickup },
+    promo_code: promo,
+  });
+
   const mutation = useMutation({
     mutationFn: () =>
-      apiPost<OrderResponse>("/orders", {
-        items: items.map((i) => ({
-          product_id: i.productId,
-          quantity: i.quantity,
-          customisation: {
-            coffee: i.customisation.coffee ?? null,
-            milk: i.customisation.milk ?? null,
-            flowers: i.customisation.flowers ?? null,
-            flower_branch: i.customisation.flowerBranch,
-            gift_card: i.customisation.giftCard,
-            gift_note: i.customisation.giftNote ?? null,
-          },
-        })),
-        customer: { name, email, pickup_time: pickup },
-        promo_code: promo,
-      }),
+      apiPost<OrderResponse>("/orders", { ...buildPayload(), payment_method: "counter" }),
     onSuccess: (order) => {
       setConfirmed(order);
       clearCart();
@@ -63,10 +75,39 @@ export default function Order() {
     },
   });
 
+  const checkoutMutation = useMutation({
+    mutationFn: () =>
+      apiPost<CheckoutSessionResponse>("/orders/checkout", {
+        ...buildPayload(),
+        payment_method: "online",
+        origin_url: window.location.origin,
+      }),
+    onSuccess: (data) => {
+      window.location.href = data.checkout_url;
+    },
+    onError: () => {
+      toast.error("We couldn't start card checkout — please try again or pay at the counter.");
+    },
+  });
+
+  const validate = () => {
+    if (items.length === 0) {
+      toast.error("Your basket is empty — add something lovely first.");
+      return false;
+    }
+    if (!name.trim() || !email.trim()) {
+      toast.error("Please add your name and email.");
+      return false;
+    }
+    return true;
+  };
+
   const submit = () => {
-    if (items.length === 0) return toast.error("Your basket is empty — add something lovely first.");
-    if (!name.trim() || !email.trim()) return toast.error("Please add your name and email.");
-    mutation.mutate();
+    if (validate()) mutation.mutate();
+  };
+
+  const payOnline = () => {
+    if (validate()) checkoutMutation.mutate();
   };
 
   return (
@@ -125,13 +166,22 @@ export default function Order() {
                 <p className="mt-5 text-xs leading-relaxed text-espresso/50">
                   Show your order number at the counter — your coffee and flowers will be waiting.
                 </p>
-                <button
-                  data-testid="order-again-button"
-                  onClick={() => setConfirmed(null)}
-                  className="mt-6 rounded-full border border-espresso/20 px-6 py-3 text-[11px] uppercase tracking-micro transition-colors hover:bg-rosemist"
-                >
-                  Place Another Order
-                </button>
+                <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                  <a
+                    data-testid="confirmation-track-link"
+                    href={`/track?number=${confirmed.order_number}`}
+                    className="rounded-full bg-blush px-6 py-3 text-[11px] uppercase tracking-micro text-espresso transition-all duration-300 hover:-translate-y-0.5 hover:bg-blushdeep"
+                  >
+                    Track Your Order
+                  </a>
+                  <button
+                    data-testid="order-again-button"
+                    onClick={() => setConfirmed(null)}
+                    className="rounded-full border border-espresso/20 px-6 py-3 text-[11px] uppercase tracking-micro transition-colors hover:bg-rosemist"
+                  >
+                    Place Another Order
+                  </button>
+                </div>
               </motion.div>
             ) : (
               <div data-testid="checkout-panel" className="border border-espresso/10 bg-cream p-7">
@@ -203,14 +253,22 @@ export default function Order() {
                     ))}
                   </select>
                   <button
+                    data-testid="pay-online-button"
+                    onClick={payOnline}
+                    disabled={mutation.isPending || checkoutMutation.isPending}
+                    className="w-full rounded-full bg-espresso py-4 text-[11px] font-medium uppercase tracking-micro text-cream transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md disabled:opacity-50 disabled:hover:translate-y-0"
+                  >
+                    {checkoutMutation.isPending ? "Opening secure checkout…" : `Pay by Card — ${gbp(total)}`}
+                  </button>
+                  <button
                     data-testid="place-order-button"
                     onClick={submit}
-                    disabled={mutation.isPending}
+                    disabled={mutation.isPending || checkoutMutation.isPending}
                     className="w-full rounded-full bg-blush py-4 text-[11px] font-medium uppercase tracking-micro text-espresso transition-all duration-300 hover:-translate-y-0.5 hover:bg-blushdeep hover:shadow-md disabled:opacity-50 disabled:hover:translate-y-0"
                   >
-                    {mutation.isPending ? "Placing your order…" : `Place Order — ${gbp(total)}`}
+                    {mutation.isPending ? "Placing your order…" : "Pay at the Counter"}
                   </button>
-                  <p className="text-center text-[10px] uppercase tracking-micro text-espresso/40">Pickup at Tower Bridge · Pay at the counter</p>
+                  <p className="text-center text-[10px] uppercase tracking-micro text-espresso/40">Pickup at Tower Bridge · Card payments secured by Stripe</p>
                 </div>
               </div>
             )}

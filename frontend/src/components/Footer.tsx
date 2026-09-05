@@ -43,6 +43,7 @@ export default function Footer() {
         </div>
         <div className="flex flex-col gap-6 md:items-end">
           <div className="flex flex-col gap-2 text-sm text-espresso/70 md:items-end">
+            <Link data-testid="footer-link-track" to="/track" className="transition-colors hover:text-blushdeep">Track Order</Link>
             <Link data-testid="footer-link-privacy" to="/faq" className="transition-colors hover:text-blushdeep">Privacy Policy</Link>
             <Link data-testid="footer-link-terms" to="/faq" className="transition-colors hover:text-blushdeep">Terms &amp; Conditions</Link>
             <a data-testid="footer-link-contact" href="mailto:hello@bloomandbrew.london" className="transition-colors hover:text-blushdeep">Contact</a>

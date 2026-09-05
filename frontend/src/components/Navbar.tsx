@@ -15,7 +15,7 @@ const RIGHT_LINKS = [
   { to: "/find-us", label: "Find Us", testid: "nav-link-find-us" },
   { to: "/faq", label: "FAQ", testid: "nav-link-faq" },
 ];
-const ALL_LINKS = [...LEFT_LINKS, ...RIGHT_LINKS, { to: "/order", label: "Order Now", testid: "nav-link-order" }];
+const ALL_LINKS = [...LEFT_LINKS, ...RIGHT_LINKS, { to: "/track", label: "Track Order", testid: "nav-link-track" }, { to: "/order", label: "Order Now", testid: "nav-link-order" }];
 
 function Logo() {
   return (

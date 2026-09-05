@@ -19,7 +19,11 @@ logger = logging.getLogger(__name__)
 # One entry per collection: every field a route filters, sorts, or dedupes on. Applied by ensure_indexes() at startup.
 INDEXES: dict[str, list[IndexModel]] = {
     "status_checks": [IndexModel([("timestamp", DESCENDING)], name="timestamp_desc")],
-    "orders": [IndexModel([("id", ASCENDING)], name="id", unique=True)],
+    "orders": [
+        IndexModel([("id", ASCENDING)], name="id", unique=True),
+        IndexModel([("order_number", ASCENDING)], name="order_number", unique=True),
+    ],
+    "payment_transactions": [IndexModel([("session_id", ASCENDING)], name="session_id", unique=True)],
 }
 
 

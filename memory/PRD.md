@@ -12,7 +12,24 @@ Premium, fully responsive website for a London-based coffee shop + flower concep
 ## User personas
 London commuters, students, couples, friends/colleagues, small-gift buyers, dates, Instagram/TikTok-oriented customers.
 
-## Implemented (2026-09-05)
+## Implemented (2026-09-05, iteration 2)
+- Stripe test checkout (Emergent sandbox, keys in backend/.env): POST /api/orders/checkout creates order + Checkout Session (GBP, itemized, BLOOM5 5% coupon, Stripe Tax calc-only with GB origin); success redirect to /order/success; POST /api/stripe/webhook (signature-verified) and GET /api/payments/status/{session_id} both flip order to paid idempotently
+- Order tracking: GET /api/orders/track/{order_number} with computed display status (awaiting_payment → received → preparing → ready by elapsed time); /track page with timeline, payment badge, items + gift notes; links from confirmation, footer, mobile nav
+- Confirmation emails: Resend pipeline (blush HTML receipt) sends on counter-order creation and on paid flip; dormant until RESEND_API_KEY is added to backend/.env (graceful skip + log otherwise)
+- Order page now offers Pay by Card (Stripe) and Pay at the Counter; cancelled-payment toast on /order?cancelled=1
+- Verified: direct sandbox charge succeeded (£19.76 GBP, pi_3UCHQh...), signed webhook → order BB-19C1C5 paid, status endpoint paid, track page + success page browser-verified; hosted checkout page rendered correctly with items/discount (headless browser could not complete Stripe's own submit — card entry proven via direct API charge instead)
+
+## Backlog
+- P1: add RESEND_API_KEY to activate confirmation emails (free at resend.com); admin orders dashboard
+- P2: Instagram live feed; newsletter signup; order-ready notifications
+- P3: loyalty stamps, gift subscriptions, multi-location pop-ups
+
+## Next tasks
+1. Add RESEND_API_KEY + verified sender domain for receipt emails
+2. Claim the Stripe sandbox (claim link was in provisioning output) to keep it beyond the preview window
+3. Register Stripe Tax when going live
+
+## Implemented (2026-09-05, iteration 1)
 - All 7 routes with sticky editorial nav (center script logo, blush ORDER NOW pill, bag counter), mobile hamburger sheet
 - Home: parallax masked-reveal hero, marquee ribbon, feature strip, category cards, featured products, How It Works, Share The Love polaroid collage, closing CTA
 - Menu: hero, 5 category filters, numbered product grid 01–10 with customise dialog + quick add
