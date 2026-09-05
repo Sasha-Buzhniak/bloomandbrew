@@ -1,11 +1,13 @@
 import asyncio
+import hmac
 import logging
 import os
 import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import jwt
 import resend
 import stripe
 from dotenv import load_dotenv
@@ -345,7 +347,10 @@ async def get_payment_status(session_id: str):
                         "updated_at": datetime.now(timezone.utc),
                     }},
                 )
-                await mark_order_paid(record["order_id"], session.payment_intent)
+                if record.get("order_id"):
+                    await mark_order_paid(record["order_id"], session.payment_intent)
+                if record.get("gift_subscription_id"):
+                    await mark_gift_active(record["gift_subscription_id"], getattr(session, "subscription", None))
                 record = await db.payment_transactions.find_one({"session_id": session_id})
         except stripe.error.StripeError:
             pass
@@ -361,6 +366,7 @@ async def stripe_webhook(request: Request):
     except stripe.error.SignatureVerificationError:
         raise HTTPException(status_code=400, detail="Invalid signature")
     obj, event_type = event["data"]["object"], event["type"]
+    metadata = obj.get("metadata") or {}
     if event_type == "checkout.session.completed":
         await db.payment_transactions.update_one(
             {"session_id": obj["id"], "payment_status": {"$ne": "paid"}},
@@ -371,9 +377,10 @@ async def stripe_webhook(request: Request):
                 "updated_at": datetime.now(timezone.utc),
             }},
         )
-        order_id = (obj.get("metadata") or {}).get("order_id")
-        if order_id:
-            await mark_order_paid(order_id, obj.get("payment_intent"))
+        if metadata.get("order_id"):
+            await mark_order_paid(metadata["order_id"], obj.get("payment_intent"))
+        if metadata.get("gift_subscription_id"):
+            await mark_gift_active(metadata["gift_subscription_id"], obj.get("subscription"))
     elif event_type == "checkout.session.async_payment_succeeded":
         await db.payment_transactions.update_one({"session_id": obj["id"]}, {"$set": {"payment_status": "paid", "updated_at": datetime.now(timezone.utc)}})
     elif event_type == "checkout.session.async_payment_failed":
@@ -382,7 +389,26 @@ async def stripe_webhook(request: Request):
         await db.payment_transactions.update_one({"session_id": obj["id"]}, {"$set": {"status": "expired", "payment_status": "expired", "updated_at": datetime.now(timezone.utc)}})
     elif event_type == "charge.refunded":
         await db.payment_transactions.update_one({"stripe_payment_intent_id": obj.get("payment_intent")}, {"$set": {"status": "refunded", "payment_status": "refunded", "updated_at": datetime.now(timezone.utc)}})
+    elif event_type == "customer.subscription.deleted":
+        await db.gift_subscriptions.update_one({"stripe_subscription_id": obj.get("id")}, {"$set": {"status": "cancelled", "updated_at": datetime.now(timezone.utc)}})
     return {"status": "ok"}
+
+
+def compute_display_status(doc: dict, order: Order) -> tuple[str, int]:
+    created = datetime.fromisoformat(order.created_at)
+    if created.tzinfo is None:
+        created = created.replace(tzinfo=timezone.utc)
+    elapsed = int((datetime.now(timezone.utc) - created).total_seconds() / 60)
+    override = doc.get("status_override")
+    if override in ("received", "preparing", "ready", "collected"):
+        return override, elapsed
+    if order.payment_method == "online" and order.payment_status != "paid":
+        return "awaiting_payment", elapsed
+    if elapsed < 3:
+        return "received", elapsed
+    if elapsed < 10:
+        return "preparing", elapsed
+    return "ready", elapsed
 
 
 @api_router.get("/orders/track/{order_number}", response_model=TrackResponse)
@@ -391,19 +417,8 @@ async def track_order(order_number: str):
     if not doc:
         raise HTTPException(status_code=404, detail="We can't find that order — double-check your number (it looks like BB-ABC123).")
     order = Order(**doc)
-    created = datetime.fromisoformat(order.created_at)
-    if created.tzinfo is None:
-        created = created.replace(tzinfo=timezone.utc)
-    elapsed = (datetime.now(timezone.utc) - created).total_seconds() / 60
-    if order.payment_method == "online" and order.payment_status != "paid":
-        display_status = "awaiting_payment"
-    elif elapsed < 3:
-        display_status = "received"
-    elif elapsed < 10:
-        display_status = "preparing"
-    else:
-        display_status = "ready"
-    return TrackResponse(order=order, display_status=display_status, minutes_elapsed=int(elapsed))
+    display_status, elapsed = compute_display_status(doc, order)
+    return TrackResponse(order=order, display_status=display_status, minutes_elapsed=elapsed)
 
 
 @api_router.get("/orders/{order_id}", response_model=Order)
@@ -412,6 +427,236 @@ async def get_order(order_id: str):
     if not doc:
         raise HTTPException(status_code=404, detail="Order not found")
     return Order(**doc)
+
+
+# ---------- Staff (shared passcode, JWT token, brute-force lockout) ----------
+
+STAFF_PASSCODE = os.environ.get("STAFF_PASSCODE", "")
+JWT_SECRET = os.environ.get("JWT_SECRET", "")
+JWT_ALGORITHM = "HS256"
+STAFF_TOKEN_HOURS = 12
+LOCKOUT_THRESHOLD = 5
+LOCKOUT_MINUTES = 15
+
+
+class StaffLogin(BaseModel):
+    passcode: str = Field(min_length=1, max_length=100)
+
+
+class StaffStatusUpdate(BaseModel):
+    status: str
+
+
+class StaffOrderView(BaseModel):
+    order: Order
+    display_status: str
+    minutes_elapsed: int
+
+
+def require_staff(request: Request) -> None:
+    auth = request.headers.get("Authorization", "")
+    token = auth[7:] if auth.startswith("Bearer ") else ""
+    try:
+        decoded = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        if decoded.get("type") != "staff":
+            raise jwt.InvalidTokenError()
+    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+        raise HTTPException(status_code=401, detail="Staff authentication required")
+
+
+@api_router.post("/staff/login")
+async def staff_login(payload: StaffLogin, request: Request):
+    ip = request.client.host if request.client else "unknown"
+    identifier = f"{ip}:staff"
+    now = datetime.now(timezone.utc)
+    record = await db.login_attempts.find_one({"identifier": identifier})
+    if record and record.get("locked_until"):
+        locked_until = record["locked_until"]
+        if locked_until.tzinfo is None:
+            locked_until = locked_until.replace(tzinfo=timezone.utc)
+        if now < locked_until:
+            raise HTTPException(status_code=429, detail="Too many attempts — try again in a few minutes.")
+
+    if not STAFF_PASSCODE or not hmac.compare_digest(payload.passcode, STAFF_PASSCODE):
+        attempts = (record.get("attempts", 0) if record else 0) + 1
+        update: dict = {"attempts": attempts, "last_attempt": now}
+        if attempts >= LOCKOUT_THRESHOLD:
+            update["locked_until"] = now + timedelta(minutes=LOCKOUT_MINUTES)
+            update["attempts"] = 0
+        await db.login_attempts.update_one({"identifier": identifier}, {"$set": update}, upsert=True)
+        raise HTTPException(status_code=401, detail="Incorrect passcode")
+
+    await db.login_attempts.delete_one({"identifier": identifier})
+    token = jwt.encode({"type": "staff", "exp": now + timedelta(hours=STAFF_TOKEN_HOURS)}, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    return {"token": token}
+
+
+@api_router.get("/staff/orders")
+async def staff_orders(request: Request):
+    require_staff(request)
+    cursor = db.orders.find({}, {"_id": 0}).sort("created_at", -1).limit(50)
+    views: list[dict] = []
+    async for doc in cursor:
+        order = Order(**doc)
+        display_status, elapsed = compute_display_status(doc, order)
+        views.append(StaffOrderView(order=order, display_status=display_status, minutes_elapsed=elapsed).model_dump())
+    return {"orders": views}
+
+
+@api_router.post("/staff/orders/{order_number}/status")
+async def staff_update_status(order_number: str, payload: StaffStatusUpdate, request: Request):
+    require_staff(request)
+    if payload.status not in ("received", "preparing", "ready", "collected"):
+        raise HTTPException(status_code=400, detail="Invalid status")
+    res = await db.orders.update_one(
+        {"order_number": order_number.strip().upper()},
+        {"$set": {"status_override": payload.status, "updated_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    if not res.matched_count:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return {"ok": True, "status": payload.status}
+
+
+# ---------- Gift subscriptions (weekly Stripe subscription) ----------
+
+
+class GiftSubscriptionCreate(BaseModel):
+    product_id: str
+    flower_colour: str = "Seasonal"
+    coffee: str | None = None
+    milk: str | None = None
+    recipient_name: str = Field(min_length=1, max_length=80)
+    address_line1: str = Field(min_length=1, max_length=120)
+    city: str = Field(min_length=1, max_length=60)
+    postcode: str = Field(min_length=1, max_length=12)
+    gift_note: str | None = None
+    gifter_name: str = Field(min_length=1, max_length=80)
+    gifter_email: EmailStr
+    origin_url: str
+
+
+def build_gift_email_html(sub: dict) -> str:
+    return f"""
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F7E9E4;padding:40px 16px;">
+  <tr><td align="center">
+    <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="background:#FFF8F4;padding:40px;border:1px solid #F3DDD7;">
+      <tr><td align="center" style="font-family:Georgia,serif;font-size:28px;letter-spacing:3px;color:#2C2422;">BLOOM &amp; BREW</td></tr>
+      <tr><td align="center" style="padding-top:6px;font-size:11px;letter-spacing:3px;color:#6E5E5A;">COFFEE &hearts; FLOWERS &hearts; A HAPPIER YOU</td></tr>
+      <tr><td align="center" style="padding:28px 0 8px;font-family:Georgia,serif;font-size:22px;color:#2C2422;">Thank you, {sub['gifter_name']}!</td></tr>
+      <tr><td align="center" style="font-size:14px;color:#6E5E5A;line-height:1.7;">
+        Your weekly gift of <strong>{sub['product_name']}</strong> is now blooming.<br/>
+        Every week we'll hand-make it for <strong>{sub['recipient_name']}</strong> and deliver it to<br/>
+        {sub['address_line1']}, {sub['city']}, {sub['postcode']} &mdash; with your note handwritten on the card.</td></tr>
+      <tr><td align="center" style="padding:22px 0;">
+        <span style="display:inline-block;background:#E7B5B2;color:#2C2422;font-family:Georgia,serif;font-size:18px;letter-spacing:2px;padding:12px 28px;border-radius:999px;">&pound;{sub['weekly_amount'] / 100:.2f} / week</span>
+      </td></tr>
+      <tr><td style="font-size:12px;color:#6E5E5A;line-height:1.7;">
+        Pause or cancel anytime by replying to this email or writing to hello@bloomandbrew.london.</td></tr>
+      <tr><td align="center" style="padding-top:26px;font-family:Georgia,serif;font-style:italic;font-size:15px;color:#DFA4A5;">
+        Same coffee, more love &hearts;</td></tr>
+    </table>
+  </td></tr>
+</table>"""
+
+
+async def send_gift_email(sub: dict) -> None:
+    if not RESEND_API_KEY:
+        logger.info("RESEND_API_KEY not set — skipping gift email for %s", sub["id"])
+        return
+    try:
+        await asyncio.to_thread(resend.Emails.send, {
+            "from": SENDER_EMAIL,
+            "to": [sub["gifter_email"]],
+            "subject": "Your weekly Bloom & Brew gift is blooming",
+            "html": build_gift_email_html(sub),
+        })
+        await db.gift_subscriptions.update_one({"id": sub["id"]}, {"$set": {"confirmation_sent": True}})
+    except Exception as exc:
+        logger.error("Failed to send gift email for %s: %s", sub["id"], exc)
+
+
+async def mark_gift_active(gift_id: str, stripe_subscription_id: str | None) -> None:
+    res = await db.gift_subscriptions.update_one(
+        {"id": gift_id, "status": {"$ne": "active"}},
+        {"$set": {"status": "active", "stripe_subscription_id": stripe_subscription_id, "updated_at": datetime.now(timezone.utc)}},
+    )
+    if res.modified_count:
+        sub = await db.gift_subscriptions.find_one({"id": gift_id}, {"_id": 0})
+        if sub:
+            await send_gift_email(sub)
+
+
+@api_router.post("/gift-subscriptions/checkout", status_code=201)
+async def create_gift_subscription(payload: GiftSubscriptionCreate):
+    product = PRODUCT_MAP.get(payload.product_id)
+    if not product:
+        raise HTTPException(status_code=400, detail="Unknown product")
+
+    sub_id = str(uuid.uuid4())
+    weekly_amount = int(round(float(product["price"]) * 100))
+    doc = {
+        "id": sub_id,
+        "product_id": payload.product_id,
+        "product_name": product["name"],
+        "weekly_amount": weekly_amount,
+        "flower_colour": payload.flower_colour,
+        "coffee": payload.coffee,
+        "milk": payload.milk,
+        "recipient_name": payload.recipient_name,
+        "address_line1": payload.address_line1,
+        "city": payload.city,
+        "postcode": payload.postcode,
+        "gift_note": payload.gift_note,
+        "gifter_name": payload.gifter_name,
+        "gifter_email": payload.gifter_email,
+        "status": "pending",
+        "stripe_subscription_id": None,
+        "confirmation_sent": False,
+        "created_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc),
+    }
+    await db.gift_subscriptions.insert_one(doc)
+
+    kwargs: dict = {
+        "line_items": [{
+            "price_data": {
+                "currency": "gbp",
+                "unit_amount": weekly_amount,
+                "recurring": {"interval": "week"},
+                "product_data": {"name": f"Weekly {product['name']} — Bloom & Brew gift"},
+            },
+            "quantity": 1,
+        }],
+        "mode": "subscription",
+        "success_url": f"{payload.origin_url}/gift/success?session_id={{CHECKOUT_SESSION_ID}}",
+        "cancel_url": f"{payload.origin_url}/gift?cancelled=1",
+        "customer_email": payload.gifter_email,
+        "metadata": {"gift_subscription_id": sub_id},
+        "subscription_data": {"metadata": {"gift_subscription_id": sub_id}},
+    }
+    await asyncio.to_thread(ensure_tax_settings)
+    try:
+        session = await asyncio.to_thread(
+            lambda: stripe.checkout.Session.create(
+                **kwargs, automatic_tax={"enabled": True}, billing_address_collection="required"
+            )
+        )
+    except stripe.error.InvalidRequestError as exc:
+        logger.warning("automatic_tax unavailable for subscription, retrying without: %s", exc.user_message or exc)
+        session = await asyncio.to_thread(lambda: stripe.checkout.Session.create(**kwargs))
+
+    await db.gift_subscriptions.update_one({"id": sub_id}, {"$set": {"stripe_session_id": session.id}})
+    await db.payment_transactions.insert_one({
+        "session_id": session.id,
+        "gift_subscription_id": sub_id,
+        "amount": weekly_amount,
+        "currency": "gbp",
+        "status": "initiated",
+        "payment_status": "pending",
+        "created_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc),
+    })
+    return {"checkout_url": session.url, "session_id": session.id, "order_number": f"GIFT-{sub_id[:6].upper()}"}
 
 
 app.include_router(api_router)

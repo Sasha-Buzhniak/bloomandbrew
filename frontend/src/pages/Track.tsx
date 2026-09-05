@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion } from "motion/react";
-import { Coffee, CupSoda, Flower2, Search } from "lucide-react";
+import { Coffee, CupSoda, Flower2, Search, Check } from "lucide-react";
 import { apiGet, ApiError } from "@/lib/api";
 import { gbp } from "@/lib/products";
 import { HeartDoodle } from "@/components/Decor";
@@ -13,12 +13,14 @@ const STEPS = [
   { key: "received", label: "Order Received", icon: Flower2 },
   { key: "preparing", label: "Preparing", icon: Coffee },
   { key: "ready", label: "Ready for Pickup", icon: CupSoda },
+  { key: "collected", label: "Collected", icon: Check },
 ] as const;
 
 function stepIndex(status: TrackResponse["display_status"]): number {
   if (status === "received") return 0;
   if (status === "preparing") return 1;
   if (status === "ready") return 2;
+  if (status === "collected") return 3;
   return -1;
 }
 

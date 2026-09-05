@@ -179,6 +179,32 @@ export default function Home() {
         </div>
       </section>
 
+      {/* GIFT SUBSCRIPTION BANNER */}
+      <section className="mx-auto max-w-7xl px-6 pb-20 md:px-8 md:pb-28">
+        <Reveal>
+          <div className="grid items-center overflow-hidden rounded-sm border border-espresso/10 bg-cream md:grid-cols-2">
+            <div className="h-64 overflow-hidden md:h-80">
+              <img src={IMAGES.gift} alt="Hands gifting a small cup of fresh flowers" loading="lazy" className="h-full w-full object-cover transition-transform duration-700 hover:scale-105" />
+            </div>
+            <div className="p-8 md:p-12">
+              <p className="font-script text-2xl text-blushdeep">new — happiness on repeat ♡</p>
+              <h2 className="mt-2 font-heading text-2xl uppercase tracking-editorial text-espresso md:text-3xl">Gift a Week of Mornings</h2>
+              <p className="mt-3 max-w-md text-sm leading-relaxed text-espresso/60">
+                Send someone a little coffee and a hand-tied posy every single week — with their name on the cup and your words on the card.
+              </p>
+              <Link
+                to="/gift"
+                data-testid="home-gift-link"
+                className="mt-6 inline-flex items-center gap-3 rounded-full bg-blush px-7 py-3.5 text-[11px] font-medium uppercase tracking-micro text-espresso transition-all duration-300 hover:-translate-y-0.5 hover:bg-blushdeep hover:shadow-md"
+              >
+                Start a Weekly Gift
+                <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
+              </Link>
+            </div>
+          </div>
+        </Reveal>
+      </section>
+
       {/* HOW IT WORKS */}
       <section className="border-y border-espresso/10 bg-rosemist/50 py-20 md:py-24">
         <div className="mx-auto max-w-7xl px-6 md:px-8">

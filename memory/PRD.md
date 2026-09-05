@@ -12,6 +12,12 @@ Premium, fully responsive website for a London-based coffee shop + flower concep
 ## User personas
 London commuters, students, couples, friends/colleagues, small-gift buyers, dates, Instagram/TikTok-oriented customers.
 
+## Implemented (2026-09-05, iteration 3)
+- Receipt emails ACTIVATED: Resend key in backend/.env; blush HTML receipt sends on counter-order creation and on paid online orders; gift-subscription welcome email added; verified delivered for BB-E5F238 (confirmation_sent=True). Free-tier limit: only delivers to the verified address (sashalunar13@gmail.com) until a domain is verified in Resend
+- Barista dashboard /barista: shared passcode "bloom-staff" → JWT staff token (12h, sessionStorage), brute-force lockout (5 tries → 15 min, Mongo login_attempts), constant-time passcode compare; live order board (20s auto-refresh) with payment badges, customisations, gift notes, one-tap status pills (Received → Preparing → Ready → Collected); overrides instantly reflected on customer /track page
+- Gift subscriptions /gift: weekly Stripe subscription (mode=subscription, recurring weekly inline price) for Lovely Latte £5.50 / Flowers Cup £12.00 / The Perfect Pair £15.00 per week, recipient address + handwritten note, success page, webhook activation + customer.subscription.deleted cancellation handling; banner added on home page
+- Verified: wrong passcode 401, no token 401, login token, staff list, status override visible on track page, gift checkout session created, real Resend send confirmed
+
 ## Implemented (2026-09-05, iteration 2)
 - Stripe test checkout (Emergent sandbox, keys in backend/.env): POST /api/orders/checkout creates order + Checkout Session (GBP, itemized, BLOOM5 5% coupon, Stripe Tax calc-only with GB origin); success redirect to /order/success; POST /api/stripe/webhook (signature-verified) and GET /api/payments/status/{session_id} both flip order to paid idempotently
 - Order tracking: GET /api/orders/track/{order_number} with computed display status (awaiting_payment → received → preparing → ready by elapsed time); /track page with timeline, payment badge, items + gift notes; links from confirmation, footer, mobile nav

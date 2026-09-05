@@ -24,6 +24,8 @@ INDEXES: dict[str, list[IndexModel]] = {
         IndexModel([("order_number", ASCENDING)], name="order_number", unique=True),
     ],
     "payment_transactions": [IndexModel([("session_id", ASCENDING)], name="session_id", unique=True)],
+    "login_attempts": [IndexModel([("identifier", ASCENDING)], name="identifier")],
+    "gift_subscriptions": [IndexModel([("id", ASCENDING)], name="id", unique=True)],
 }
 
 

@@ -18,11 +18,13 @@ export class ApiError extends Error {
 
 type JsonBody = unknown;
 
-async function request<T>(method: string, path: string, body?: JsonBody): Promise<T> {
-  // Auth rides the httpOnly session cookie automatically — never add auth headers here.
+async function request<T>(method: string, path: string, body?: JsonBody, token?: string): Promise<T> {
+  const headers: Record<string, string> = {};
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+  if (token) headers["Authorization"] = `Bearer ${token}`;
   const res = await fetch(`${BASE}${path}`, {
     method,
-    headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+    headers: Object.keys(headers).length ? headers : undefined,
     body: body === undefined ? undefined : JSON.stringify(body),
   });
 
@@ -38,8 +40,10 @@ async function request<T>(method: string, path: string, body?: JsonBody): Promis
 
 // The response type is yours to declare: nothing infers across the Python boundary, so a
 // TS interface here mirrors the endpoint's Pydantic model by hand — keep the two in sync.
-export const apiGet = <T>(path: string) => request<T>("GET", path);
-export const apiPost = <T>(path: string, body?: JsonBody) => request<T>("POST", path, body ?? null);
+// `token` is only for the staff dashboard's shared-secret Bearer token (sessionStorage).
+export const apiGet = <T>(path: string, token?: string) => request<T>("GET", path, undefined, token);
+export const apiPost = <T>(path: string, body?: JsonBody, token?: string) =>
+  request<T>("POST", path, body ?? null, token);
 export const apiPut = <T>(path: string, body?: JsonBody) => request<T>("PUT", path, body ?? null);
 export const apiPatch = <T>(path: string, body?: JsonBody) =>
   request<T>("PATCH", path, body ?? null);

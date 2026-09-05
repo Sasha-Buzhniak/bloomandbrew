@@ -16,6 +16,9 @@ import Faq from "@/pages/Faq";
 import Order from "@/pages/Order";
 import OrderSuccess from "@/pages/OrderSuccess";
 import Track from "@/pages/Track";
+import Barista from "@/pages/Barista";
+import Gift from "@/pages/Gift";
+import GiftSuccess from "@/pages/GiftSuccess";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -53,6 +56,9 @@ export default function App() {
               <Route path="/order" element={<Order />} />
               <Route path="/order/success" element={<OrderSuccess />} />
               <Route path="/track" element={<Track />} />
+              <Route path="/barista" element={<Barista />} />
+              <Route path="/gift" element={<Gift />} />
+              <Route path="/gift/success" element={<GiftSuccess />} />
               <Route path="*" element={<Home />} />
             </Routes>
           </motion.main>

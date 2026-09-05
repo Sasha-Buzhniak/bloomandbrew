@@ -30,7 +30,7 @@ export interface PlacedOrder {
 
 export interface TrackResponse {
   order: PlacedOrder;
-  display_status: "awaiting_payment" | "received" | "preparing" | "ready";
+  display_status: "awaiting_payment" | "received" | "preparing" | "ready" | "collected";
   minutes_elapsed: number;
 }
 
