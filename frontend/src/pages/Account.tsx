@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
-import { ArrowRight, Copy, LogOut, Repeat } from "lucide-react";
+import { ArrowRight, Camera, Copy, LogOut, Repeat } from "lucide-react";
 import { toast } from "sonner";
-import { apiGet, apiPost } from "@/lib/api";
+import { apiGet, apiPatch, apiPost } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import type { AuthUser } from "@/lib/auth";
 import { useCart } from "@/lib/cart";
 import { gbp, useCatalog } from "@/lib/products";
 import { HeartDoodle, SectionOverline } from "@/components/Decor";
@@ -58,6 +59,50 @@ export default function Account() {
   const queryClient = useQueryClient();
   const { addItem, openCart } = useCart();
   const { products: catalogProducts } = useCatalog();
+  const { setUser } = useAuth();
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [profileName, setProfileName] = useState("");
+  const [profileDob, setProfileDob] = useState("");
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const startEditProfile = () => {
+    if (!user) return;
+    setProfileName(user.name);
+    setProfileDob(user.date_of_birth ?? "");
+    setAvatarPreview(null);
+    setEditingProfile(true);
+  };
+
+  const saveProfile = async () => {
+    if (!user || !profileName.trim()) {
+      toast.error("Your name can't be empty ♡");
+      return;
+    }
+    setSavingProfile(true);
+    try {
+      if (profileName.trim() !== user.name || profileDob !== (user.date_of_birth ?? "")) {
+        const updated = await apiPatch<AuthUser>("/auth/profile", { name: profileName.trim(), date_of_birth: profileDob || null });
+        setUser(updated);
+      }
+      const file = fileInputRef.current?.files?.[0];
+      if (file) {
+        const fd = new FormData();
+        fd.append("file", file);
+        const res = await fetch("/api/auth/avatar", { method: "POST", body: fd });
+        if (!res.ok) throw new Error("upload failed");
+        setUser((await res.json()) as AuthUser);
+      }
+      toast.success("Profile saved ♡");
+      setEditingProfile(false);
+      setAvatarPreview(null);
+    } catch {
+      toast.error("Couldn't save — try again.");
+    } finally {
+      setSavingProfile(false);
+    }
+  };
   const [rewardCode, setRewardCode] = useState<string | null>(null);
 
   const loyaltyQuery = useQuery({
@@ -180,6 +225,122 @@ export default function Account() {
             <LogOut className="h-3.5 w-3.5" strokeWidth={1.5} />
             Sign Out
           </button>
+        </div>
+      </Reveal>
+
+      <Reveal delay={0.08} className="mt-12">
+        <div data-testid="account-settings" className="border border-espresso/10 bg-cream p-7">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="font-script text-2xl text-blushdeep">make it yours ♡</p>
+              <h2 className="mt-1 font-heading text-xl uppercase tracking-editorial text-espresso">Account Settings</h2>
+            </div>
+            {!editingProfile && (
+              <button
+                data-testid="edit-profile-button"
+                onClick={startEditProfile}
+                className="rounded-full border border-espresso/20 px-5 py-2.5 text-[10px] uppercase tracking-micro text-espresso transition-colors hover:bg-rosemist"
+              >
+                Edit Profile
+              </button>
+            )}
+          </div>
+
+          {editingProfile ? (
+            <div className="mt-6 space-y-4 border-t border-espresso/10 pt-6">
+              <div className="flex items-center gap-5">
+                <div className="relative shrink-0">
+                  {(avatarPreview ?? user.picture) ? (
+                    <img src={avatarPreview ?? user.picture ?? ""} alt="Profile photo preview" className="h-20 w-20 rounded-full border-2 border-blush object-cover" />
+                  ) : (
+                    <span className="flex h-20 w-20 items-center justify-center rounded-full bg-blush font-heading text-2xl text-espresso">
+                      {user.name.charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                  <button
+                    data-testid="avatar-upload-button"
+                    aria-label="Change profile photo"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-espresso text-cream shadow-md transition-transform hover:-translate-y-0.5"
+                  >
+                    <Camera className="h-4 w-4" strokeWidth={1.5} />
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    data-testid="avatar-file-input"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) setAvatarPreview(URL.createObjectURL(f));
+                    }}
+                  />
+                </div>
+                <p className="max-w-xs text-xs leading-relaxed text-espresso/55">Tap the camera to change your photo — JPG, PNG or WEBP, up to 5MB.</p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block">
+                  <span className="mb-1.5 block text-[10px] uppercase tracking-micro text-espresso/50">Your name</span>
+                  <input
+                    data-testid="profile-name-input"
+                    value={profileName}
+                    onChange={(e) => setProfileName(e.target.value)}
+                    maxLength={80}
+                    className="h-11 w-full rounded-full border border-espresso/15 bg-page px-5 text-sm outline-none focus:border-blushdeep"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1.5 block text-[10px] uppercase tracking-micro text-espresso/50">Birthday</span>
+                  <input
+                    data-testid="profile-dob-input"
+                    type="date"
+                    value={profileDob}
+                    max={new Date().toISOString().slice(0, 10)}
+                    onChange={(e) => setProfileDob(e.target.value)}
+                    className="h-11 w-full rounded-full border border-espresso/15 bg-page px-5 text-sm outline-none focus:border-blushdeep"
+                  />
+                </label>
+              </div>
+              <p className="font-script text-xl text-blushdeep">tell us your birthday — we might just remember it ♡</p>
+              <div className="flex gap-3">
+                <button
+                  data-testid="save-profile-button"
+                  onClick={() => void saveProfile()}
+                  disabled={savingProfile}
+                  className="rounded-full bg-espresso px-7 py-3 text-[11px] font-medium uppercase tracking-micro text-cream transition-all duration-300 hover:-translate-y-0.5 disabled:opacity-50"
+                >
+                  {savingProfile ? "Saving…" : "Save Changes"}
+                </button>
+                <button
+                  data-testid="cancel-profile-button"
+                  onClick={() => { setEditingProfile(false); setAvatarPreview(null); }}
+                  className="rounded-full border border-espresso/20 px-6 py-3 text-[11px] uppercase tracking-micro transition-colors hover:bg-rosemist"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <dl className="mt-6 grid gap-4 border-t border-espresso/10 pt-6 text-sm sm:grid-cols-3">
+              <div>
+                <dt className="text-[10px] uppercase tracking-micro text-espresso/45">Name</dt>
+                <dd data-testid="profile-name-display" className="mt-1 text-espresso">{user.name}</dd>
+              </div>
+              <div>
+                <dt className="text-[10px] uppercase tracking-micro text-espresso/45">Birthday</dt>
+                <dd data-testid="profile-dob-display" className="mt-1 text-espresso">
+                  {user.date_of_birth
+                    ? new Date(`${user.date_of_birth}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "long" })
+                    : "Not set yet"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[10px] uppercase tracking-micro text-espresso/45">Email</dt>
+                <dd className="mt-1 text-espresso">{user.email}</dd>
+              </div>
+            </dl>
+          )}
         </div>
       </Reveal>
 

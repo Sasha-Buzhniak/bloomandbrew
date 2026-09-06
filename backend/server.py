@@ -9,10 +9,12 @@ from pathlib import Path
 
 import httpx
 import jwt
+import requests
 import resend
 import stripe
 from dotenv import load_dotenv
-from fastapi import FastAPI, APIRouter, HTTPException, Request, Response
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, UploadFile
+from fastapi import File as FileParam
 from pydantic import BaseModel, Field, EmailStr
 from starlette.middleware.cors import CORSMiddleware
 
@@ -27,6 +29,11 @@ async def lifespan(app: FastAPI):
     app.state.index_task = asyncio.create_task(ensure_indexes())
     app.state.reminder_task = asyncio.create_task(gift_reminder_loop())
     await seed_catalog()
+    try:
+        await asyncio.to_thread(init_storage)
+        logger.info("Object storage initialized")
+    except Exception as exc:
+        logger.error("Storage init failed: %s", exc)
     yield
     app.state.reminder_task.cancel()
     client.close()
@@ -61,6 +68,52 @@ if RESEND_API_KEY:
 PROMO_COUPON_ID = "BLOOM5_OFF"
 
 logger = logging.getLogger(__name__)
+
+# Object storage (playbook: init once at startup, session-scoped key, app-name prefix)
+STORAGE_BASE = (os.environ.get("INTEGRATION_PROXY_URL") or "").strip() or "https://integrations.emergentagent.com"
+STORAGE_URL = STORAGE_BASE.rstrip("/") + "/objstore/api/v1/storage"
+APP_NAME = "bloom-and-brew"
+storage_key: str | None = None
+
+
+def init_storage(force: bool = False):
+    global storage_key
+    if storage_key and not force:
+        return storage_key
+    resp = requests.post(f"{STORAGE_URL}/init", json={"emergent_key": os.environ.get("EMERGENT_LLM_KEY")}, timeout=30)
+    resp.raise_for_status()
+    storage_key = resp.json()["storage_key"]
+    return storage_key
+
+
+def put_object(path: str, data: bytes, content_type: str) -> dict:
+    key = init_storage()
+    resp = requests.put(
+        f"{STORAGE_URL}/objects/{path}",
+        headers={"X-Storage-Key": key, "Content-Type": content_type},
+        data=data,
+        timeout=120,
+    )
+    if resp.status_code == 404:
+        key = init_storage(force=True)
+        resp = requests.put(
+            f"{STORAGE_URL}/objects/{path}",
+            headers={"X-Storage-Key": key, "Content-Type": content_type},
+            data=data,
+            timeout=120,
+        )
+    resp.raise_for_status()
+    return resp.json()
+
+
+def get_object(path: str) -> tuple[bytes, str]:
+    key = init_storage()
+    resp = requests.get(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": key}, timeout=60)
+    if resp.status_code == 404:
+        key = init_storage(force=True)
+        resp = requests.get(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": key}, timeout=60)
+    resp.raise_for_status()
+    return resp.content, resp.headers.get("Content-Type", "application/octet-stream")
 
 
 async def seed_catalog() -> None:
@@ -492,6 +545,7 @@ class AuthUser(BaseModel):
     name: str
     picture: str | None = None
     is_admin: bool = False
+    date_of_birth: str | None = None
 
 
 ADMIN_EMAILS = {e.strip().lower() for e in os.environ.get("ADMIN_EMAILS", "").split(",") if e.strip()}
@@ -589,6 +643,88 @@ async def auth_orders(request: Request):
         {"_id": 0, "id": 1, "product_name": 1, "weekly_amount": 1, "recipient_name": 1, "status": 1},
     ).to_list(20)
     return {"orders": views, "gifts": gifts}
+
+
+class ProfileUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=80)
+    date_of_birth: str | None = Field(default=None, max_length=10)
+
+
+@api_router.patch("/auth/profile", response_model=AuthUser)
+async def update_profile(payload: ProfileUpdate, request: Request):
+    user = await get_current_user(request)
+    updates: dict = {}
+    if payload.name is not None:
+        updates["name"] = payload.name.strip()
+    if payload.date_of_birth is not None:
+        dob = payload.date_of_birth.strip()
+        if dob:
+            try:
+                parsed = datetime.strptime(dob, "%Y-%m-%d").date()
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Date of birth must be YYYY-MM-DD")
+            today = datetime.now(timezone.utc).date()
+            if parsed > today or parsed.year < 1900:
+                raise HTTPException(status_code=400, detail="That birthday doesn't look right")
+            updates["date_of_birth"] = dob
+        else:
+            updates["date_of_birth"] = None
+    if updates:
+        updates["updated_at"] = datetime.now(timezone.utc)
+        await db.users.update_one({"user_id": user["user_id"]}, {"$set": updates})
+    fresh = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0})
+    return AuthUser(**fresh, is_admin=fresh["email"] in ADMIN_EMAILS)
+
+
+ALLOWED_IMAGE_TYPES = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
+
+
+@api_router.post("/auth/avatar", response_model=AuthUser)
+async def upload_avatar(request: Request, file: UploadFile = FileParam(...)):
+    user = await get_current_user(request)
+    content_type = file.content_type or ""
+    if content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(status_code=400, detail="Please upload a JPG, PNG or WEBP image")
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="Empty file")
+    if len(data) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Images must be under 5MB")
+    path = f"{APP_NAME}/uploads/{user['user_id']}/{uuid.uuid4().hex}.{ALLOWED_IMAGE_TYPES[content_type]}"
+    try:
+        result = await asyncio.to_thread(put_object, path, data, content_type)
+    except Exception as exc:
+        logger.error("Avatar upload failed for %s: %s", user["user_id"], exc)
+        raise HTTPException(status_code=503, detail="Photo storage is unavailable right now — try again in a moment")
+    previous = await db.files.find_one({"user_id": user["user_id"], "kind": "avatar", "is_deleted": False})
+    if previous:
+        await db.files.update_one({"storage_path": previous["storage_path"]}, {"$set": {"is_deleted": True}})
+    await db.files.insert_one({
+        "id": str(uuid.uuid4()),
+        "storage_path": result["path"],
+        "user_id": user["user_id"],
+        "kind": "avatar",
+        "original_filename": file.filename,
+        "content_type": content_type,
+        "size": result["size"],
+        "is_deleted": False,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    await db.users.update_one({"user_id": user["user_id"]}, {"$set": {"picture": f"/api/files/{result['path']}"}})
+    fresh = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0})
+    return AuthUser(**fresh, is_admin=fresh["email"] in ADMIN_EMAILS)
+
+
+@api_router.get("/files/{path:path}")
+async def serve_file(path: str):
+    record = await db.files.find_one({"storage_path": path, "is_deleted": False}, {"_id": 0})
+    if not record:
+        raise HTTPException(status_code=404, detail="File not found")
+    try:
+        data, content_type = await asyncio.to_thread(get_object, path)
+    except Exception:
+        raise HTTPException(status_code=404, detail="File not found")
+    return Response(content=data, media_type=record.get("content_type", content_type))
 
 
 # ---------- Admin (product catalogue & stock; ADMIN_EMAILS only) ----------

@@ -12,6 +12,10 @@ Premium, fully responsive website for a London-based coffee shop + flower concep
 ## User personas
 London commuters, students, couples, friends/colleagues, small-gift buyers, dates, Instagram/TikTok-oriented customers.
 
+## Implemented (2026-09-06, iteration 9)
+- Account settings on /account: Edit Profile → change name, set birthday (validated YYYY-MM-DD, not future/pre-1900), and upload a profile photo (JPG/PNG/WEBP ≤5MB) — photos go to Emergent object storage (EMERGENT_LLM_KEY, app prefix bloom-and-brew/, soft-delete files collection, served publicly via GET /api/files/{path}); PATCH /api/auth/profile updates name/DOB; AuthUser now carries date_of_birth
+- Verified: profile PATCH, invalid DOB 400, avatar upload → /api/files 200 image/jpeg via public ingress, 404 on unknown paths, browser save flow with toast, typecheck clean
+
 ## Implemented (2026-09-06, iteration 8 — bug fixes)
 - Fixed mobile product cards: price/buttons overlapped on ~180px-wide cards (footer now wraps, smaller pills on mobile) — this overlap was also swallowing Add-button taps, which caused the reported "checkout does nothing"
 - Fixed mobile checkout UX: cart "Review & Checkout" now deep-links to /order#checkout and auto-scrolls to the checkout panel; added a floating "Checkout · N items · £X" bar on mobile while the basket is non-empty
