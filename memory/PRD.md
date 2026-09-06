@@ -12,6 +12,13 @@ Premium, fully responsive website for a London-based coffee shop + flower concep
 ## User personas
 London commuters, students, couples, friends/colleagues, small-gift buyers, dates, Instagram/TikTok-oriented customers.
 
+## Implemented (2026-09-06, iteration 5)
+- Emergent-managed Google sign-in: /account ("My Mornings") with Continue with Google → auth.emergentagent.com → AuthCallback exchanges session_id via backend-only GET /api/auth/session-data, httpOnly session_token cookie (7 days, samesite=none, secure), users + user_sessions collections with custom user_id (never _id), GET /api/auth/me (cookie then Bearer), POST /api/auth/logout, GET /api/auth/orders (order history + gift subscriptions matched by email)
+- AuthProvider with three-state check that skips /auth/me during the OAuth hash callback (race-condition-safe, hash read from useLocation); navbar account icon; checkout prefills name/email when signed in
+- Fully additive: orders, tracking, Stripe, barista passcode all unchanged and still work signed-out
+- Verified: /auth/me 401 without token, test session returns user, /auth/orders returns BB-E5F238 + active gift, browser pass with cookie shows profile/history/prefill, sign-out prompt without cookie. NOT verified: the real Google round trip (needs a human Google login — test by clicking Continue with Google)
+- Testing playbook saved at /app/auth_testing.md
+
 ## Implemented (2026-09-06, iteration 4)
 - Order-ready alerts: when a barista marks an order Ready in /barista, the customer is emailed "come and get it while it's warm" (idempotent via ready_email_sent flag); verified live for BB-E5F238
 - Gift reminders: hourly background task emails the giver "Week N of blooms went out today ♡" on each weekly anniversary of an active subscription (activated_at, last_reminder_week); verified live (week-1 reminder sent for the test subscription)

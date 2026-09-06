@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
-import { Menu, ShoppingBag } from "lucide-react";
+import { CircleUser, Menu, ShoppingBag } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { useCart } from "@/lib/cart";
 import { HeartDoodle } from "@/components/Decor";
@@ -107,6 +107,14 @@ export default function Navbar() {
             className="hidden rounded-full bg-blush px-6 py-2.5 text-[11px] font-medium uppercase tracking-micro text-espresso transition-all duration-300 hover:-translate-y-0.5 hover:bg-blushdeep hover:shadow-md md:inline-block"
           >
             Order Now
+          </Link>
+          <Link
+            to="/account"
+            data-testid="account-link"
+            aria-label="My account"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-espresso transition-colors hover:bg-rosemist"
+          >
+            <CircleUser className="h-5 w-5" strokeWidth={1.5} />
           </Link>
           <button
             data-testid="cart-button"

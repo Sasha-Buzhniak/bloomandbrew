@@ -19,6 +19,9 @@ import Track from "@/pages/Track";
 import Barista from "@/pages/Barista";
 import Gift from "@/pages/Gift";
 import GiftSuccess from "@/pages/GiftSuccess";
+import Account from "@/pages/Account";
+import AuthCallback from "@/pages/AuthCallback";
+import { AuthProvider } from "@/lib/auth";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -30,43 +33,59 @@ function ScrollToTop() {
   return null;
 }
 
-export default function App() {
+function AppShell() {
   const location = useLocation();
+  // Detect the OAuth return synchronously during render (useLocation().hash is reactive;
+  // window.location.hash is not) so the session exchange runs before any auth check.
+  if (location.hash?.includes("session_id=")) {
+    return <AuthCallback />;
+  }
+  return (
+    <>
+      <ScrollToTop />
+      <div className="grain-overlay" aria-hidden="true" />
+      <Navbar />
+      <AnimatePresence mode="wait">
+        <motion.main
+          key={location.pathname}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+        >
+          <Routes location={location}>
+            <Route path="/" element={<Home />} />
+            <Route path="/menu" element={<Menu />} />
+            <Route path="/our-story" element={<OurStory />} />
+            <Route path="/gallery" element={<Gallery />} />
+            <Route path="/find-us" element={<FindUs />} />
+            <Route path="/faq" element={<Faq />} />
+            <Route path="/order" element={<Order />} />
+            <Route path="/order/success" element={<OrderSuccess />} />
+            <Route path="/track" element={<Track />} />
+            <Route path="/barista" element={<Barista />} />
+            <Route path="/gift" element={<Gift />} />
+            <Route path="/gift/success" element={<GiftSuccess />} />
+            <Route path="/account" element={<Account />} />
+            <Route path="*" element={<Home />} />
+          </Routes>
+        </motion.main>
+      </AnimatePresence>
+      <Footer />
+      <CartDrawer />
+      <Toaster position="bottom-center" />
+    </>
+  );
+}
+
+export default function App() {
   return (
     <ReactLenis root options={{ lerp: 0.09 }}>
-      <CartProvider>
-        <ScrollToTop />
-        <div className="grain-overlay" aria-hidden="true" />
-        <Navbar />
-        <AnimatePresence mode="wait">
-          <motion.main
-            key={location.pathname}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.4, ease: "easeOut" }}
-          >
-            <Routes location={location}>
-              <Route path="/" element={<Home />} />
-              <Route path="/menu" element={<Menu />} />
-              <Route path="/our-story" element={<OurStory />} />
-              <Route path="/gallery" element={<Gallery />} />
-              <Route path="/find-us" element={<FindUs />} />
-              <Route path="/faq" element={<Faq />} />
-              <Route path="/order" element={<Order />} />
-              <Route path="/order/success" element={<OrderSuccess />} />
-              <Route path="/track" element={<Track />} />
-              <Route path="/barista" element={<Barista />} />
-              <Route path="/gift" element={<Gift />} />
-              <Route path="/gift/success" element={<GiftSuccess />} />
-              <Route path="*" element={<Home />} />
-            </Routes>
-          </motion.main>
-        </AnimatePresence>
-        <Footer />
-        <CartDrawer />
-        <Toaster position="bottom-center" />
-      </CartProvider>
+      <AuthProvider>
+        <CartProvider>
+          <AppShell />
+        </CartProvider>
+      </AuthProvider>
     </ReactLenis>
   );
 }

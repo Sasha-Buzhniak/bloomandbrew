@@ -12,6 +12,7 @@ import { HeartDoodle } from "@/components/Decor";
 import ProductCard from "@/components/ProductCard";
 import CustomizeDialog from "@/components/CustomizeDialog";
 import { customisationLabel } from "@/components/CartDrawer";
+import { useAuth } from "@/lib/auth";
 import type { CheckoutSessionResponse } from "@/lib/orders";
 
 interface OrderResponse {
@@ -39,6 +40,14 @@ export default function Order() {
   const [confirmed, setConfirmed] = useState<OrderResponse | null>(null);
 
   const [searchParams] = useSearchParams();
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (user) {
+      setName((n) => n || user.name);
+      setEmail((e) => e || user.email);
+    }
+  }, [user]);
 
   useEffect(() => {
     if (searchParams.get("cancelled")) {
