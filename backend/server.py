@@ -26,6 +26,7 @@ from lib.db import client, db, ensure_indexes
 async def lifespan(app: FastAPI):
     app.state.index_task = asyncio.create_task(ensure_indexes())
     app.state.reminder_task = asyncio.create_task(gift_reminder_loop())
+    await seed_catalog()
     yield
     app.state.reminder_task.cancel()
     client.close()
@@ -34,17 +35,19 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 api_router = APIRouter(prefix="/api")
 
+_IMG = "https://static.prod-images.emergentagent.com/jobs/c0491736-3096-426b-960f-5b5a7123e01c/images"
+
 PRODUCTS = [
-    {"id": "lovely-latte", "name": "Lovely Latte", "description": "Classic latte with a little flower", "price": 5.50, "category": "coffee"},
-    {"id": "bloom-cappuccino", "name": "Bloom Cappuccino", "description": "Cappuccino with a mini bouquet", "price": 5.00, "category": "coffee"},
-    {"id": "pink-bloom-latte", "name": "Pink Bloom Latte", "description": "Iced latte with floral touch", "price": 5.80, "category": "coffee"},
-    {"id": "flowers-cup", "name": "Flowers Cup", "description": "Seasonal fresh flowers in a cup", "price": 12.00, "category": "flowers"},
-    {"id": "matcha-moment", "name": "Matcha Moment", "description": "Matcha latte with a mini bouquet", "price": 5.80, "category": "coffee"},
-    {"id": "the-perfect-pair", "name": "The Perfect Pair", "description": "Your coffee and a cup of flowers", "price": 15.00, "category": "combo"},
-    {"id": "caramel-bloom", "name": "Caramel Bloom", "description": "Iced caramel latte with a mini bouquet", "price": 5.80, "category": "coffee"},
-    {"id": "blue-harmony", "name": "Blue Harmony", "description": "Seasonal fresh flowers in a cup", "price": 12.00, "category": "flowers"},
-    {"id": "mocha-love", "name": "Mocha Love", "description": "Mocha with a mini bouquet", "price": 5.80, "category": "coffee"},
-    {"id": "berry-blossom", "name": "Berry Blossom", "description": "Iced berry latte with a mini bouquet", "price": 5.80, "category": "seasonal"},
+    {"id": "lovely-latte", "name": "Lovely Latte", "description": "Classic latte with a little flower", "price": 5.50, "category": "coffee", "image": f"{_IMG}/4f08ea54444d4729e03160549a3332565446d3a7538a47164b1c324a9607e48f.jpeg", "alt": "Iced latte with a pink carnation posy tied with twine"},
+    {"id": "bloom-cappuccino", "name": "Bloom Cappuccino", "description": "Cappuccino with a mini bouquet", "price": 5.00, "category": "coffee", "image": f"{_IMG}/f0d6d48451529c7a61008304b8992ca968bc2924db3b51e81f3e5fb0e3cc736a.jpeg", "alt": "Cappuccino with heart latte art and a baby's breath posy"},
+    {"id": "pink-bloom-latte", "name": "Pink Bloom Latte", "description": "Iced latte with floral touch", "price": 5.80, "category": "coffee", "image": f"{_IMG}/22c05cf7205d2c46119d722483999512a2699195dc24f13be0d6cfce1bcade82.jpeg", "alt": "Iced pink latte with a pink daisy posy"},
+    {"id": "flowers-cup", "name": "Flowers Cup", "description": "Seasonal fresh flowers in a cup", "price": 12.00, "category": "flowers", "image": f"{_IMG}/0b980d0c68ed75d2f70bfabbbf017ff9640e4b2a65d2cae7e950c3997616363c.jpeg", "alt": "White cup filled with fresh pink tulips and daisies"},
+    {"id": "matcha-moment", "name": "Matcha Moment", "description": "Matcha latte with a mini bouquet", "price": 5.80, "category": "coffee", "image": f"{_IMG}/4a2ecba94a5256dc8af79f9df6a74f4dbbe8ba63d034c4e540efe41397c700af.jpeg", "alt": "Matcha latte with a white daisy posy tied with twine"},
+    {"id": "the-perfect-pair", "name": "The Perfect Pair", "description": "Your coffee and a cup of flowers", "price": 15.00, "category": "combo", "image": f"{_IMG}/c0d66cce7b34b7d47090c333efa448aee09eacb4e9df642c18dd60cbb8e41e66.jpeg", "alt": "Drink carrier holding an iced coffee and a small cup of pink flowers"},
+    {"id": "caramel-bloom", "name": "Caramel Bloom", "description": "Iced caramel latte with a mini bouquet", "price": 5.80, "category": "coffee", "image": f"{_IMG}/e0d1a3c9c127b471d39c0c4b424004878b799236b6b2e4cae06f88684605e286.jpeg", "alt": "Iced caramel latte with a baby's breath posy"},
+    {"id": "blue-harmony", "name": "Blue Harmony", "description": "Seasonal fresh flowers in a cup", "price": 12.00, "category": "flowers", "image": f"{_IMG}/afd59e67ad0afefd9ae25b7a5086011cc0260c44914ee8449de924727a000245.jpeg", "alt": "Cup vase with blue delphinium and white daisies"},
+    {"id": "mocha-love", "name": "Mocha Love", "description": "Mocha with a mini bouquet", "price": 5.80, "category": "coffee", "image": f"{_IMG}/fd4caf90d9ac521ce258213ae9ccf74958ebd4926732d56a3e11179df666a535.jpeg", "alt": "Pink ceramic cup of mocha with a pink astilbe posy"},
+    {"id": "berry-blossom", "name": "Berry Blossom", "description": "Iced berry latte with a mini bouquet", "price": 5.80, "category": "seasonal", "image": f"{_IMG}/cf722d88cf332f52010da5a6ea8b712532e03adfa3abf6a2866b9969214732ef.jpeg", "alt": "Iced berry latte with a pink daisy posy"},
 ]
 PRODUCT_MAP = {p["id"]: p for p in PRODUCTS}
 PROMO_CODES = {"BLOOM5": 0.05}
@@ -58,6 +61,26 @@ if RESEND_API_KEY:
 PROMO_COUPON_ID = "BLOOM5_OFF"
 
 logger = logging.getLogger(__name__)
+
+
+async def seed_catalog() -> None:
+    for idx, product in enumerate(PRODUCTS):
+        existing = await db.products.find_one({"id": product["id"]})
+        if not existing:
+            await db.products.insert_one({
+                **product,
+                "num": f"{idx + 1:02d}",
+                "in_stock": True,
+                "created_at": datetime.now(timezone.utc),
+            })
+        else:
+            patch = {k: product[k] for k in ("image", "alt") if not existing.get(k)}
+            if not existing.get("num"):
+                patch["num"] = f"{idx + 1:02d}"
+            if patch:
+                await db.products.update_one({"id": product["id"]}, {"$set": patch})
+    if not await db.settings.find_one({"id": "shop"}):
+        await db.settings.insert_one({"id": "shop", "milk_stock": {"whole": True, "oat": True, "almond": True, "soy": True}})
 
 
 def ensure_tax_settings() -> None:
@@ -150,6 +173,7 @@ async def send_confirmation_email(order: "Order") -> None:
             "html": build_receipt_html(order),
         })
         await db.orders.update_one({"id": order.id}, {"$set": {"confirmation_sent": True}})
+        await maybe_send_milestone(order.customer.email, order.customer.name)
     except Exception as exc:
         logger.error("Failed to send confirmation email for %s: %s", order.order_number, exc)
 
@@ -217,10 +241,17 @@ class TrackResponse(BaseModel):
 async def build_order(payload: OrderCreate, payment_method: str) -> Order:
     items: list[OrderItem] = []
     subtotal = 0.0
+    settings = await db.settings.find_one({"id": "shop"}, {"_id": 0}) or {}
+    milk_stock = settings.get("milk_stock", {})
     for item in payload.items:
-        product = PRODUCT_MAP.get(item.product_id)
+        product = await db.products.find_one({"id": item.product_id}, {"_id": 0}) or PRODUCT_MAP.get(item.product_id)
         if not product:
             raise HTTPException(status_code=400, detail=f"Unknown product: {item.product_id}")
+        if product.get("in_stock") is False:
+            raise HTTPException(status_code=400, detail=f"{product['name']} is sold out right now")
+        milk = item.customisation.milk
+        if milk and milk_stock.get(milk.lower()) is False:
+            raise HTTPException(status_code=400, detail=f"{milk} milk is sold out right now")
         unit_price = float(product["price"])
         subtotal += unit_price * item.quantity
         items.append(OrderItem(
@@ -267,7 +298,14 @@ async def root():
 
 @api_router.get("/products")
 async def get_products():
-    return {"products": PRODUCTS}
+    docs = await db.products.find({}, {"_id": 0}).sort("num", 1).to_list(100)
+    return {"products": docs if docs else PRODUCTS}
+
+
+@api_router.get("/settings/public")
+async def public_settings():
+    settings = await db.settings.find_one({"id": "shop"}, {"_id": 0})
+    return {"milk_stock": (settings or {}).get("milk_stock", {"whole": True, "oat": True, "almond": True, "soy": True})}
 
 
 @api_router.post("/orders", response_model=Order, status_code=201)
@@ -453,6 +491,10 @@ class AuthUser(BaseModel):
     email: str
     name: str
     picture: str | None = None
+    is_admin: bool = False
+
+
+ADMIN_EMAILS = {e.strip().lower() for e in os.environ.get("ADMIN_EMAILS", "").split(",") if e.strip()}
 
 
 @api_router.get("/auth/session-data", response_model=AuthUser)
@@ -484,7 +526,7 @@ async def auth_session_data(session_id: str, response: Response):
     })
     response.set_cookie(key="session_token", value=data["session_token"], httponly=True, secure=True, samesite="none", max_age=604800, path="/")
     user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
-    return AuthUser(**user)
+    return AuthUser(**user, is_admin=user["email"] in ADMIN_EMAILS)
 
 
 async def get_current_user(request: Request) -> dict:
@@ -513,7 +555,15 @@ async def get_current_user(request: Request) -> dict:
 
 @api_router.get("/auth/me", response_model=AuthUser)
 async def auth_me(request: Request):
-    return AuthUser(**await get_current_user(request))
+    user = await get_current_user(request)
+    return AuthUser(**user, is_admin=user["email"] in ADMIN_EMAILS)
+
+
+async def require_admin(request: Request) -> dict:
+    user = await get_current_user(request)
+    if user["email"] not in ADMIN_EMAILS:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return user
 
 
 @api_router.post("/auth/logout")
@@ -539,6 +589,85 @@ async def auth_orders(request: Request):
         {"_id": 0, "id": 1, "product_name": 1, "weekly_amount": 1, "recipient_name": 1, "status": 1},
     ).to_list(20)
     return {"orders": views, "gifts": gifts}
+
+
+# ---------- Admin (product catalogue & stock; ADMIN_EMAILS only) ----------
+
+
+class ProductIn(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    description: str = Field(default="", max_length=200)
+    price: float = Field(gt=0, le=500)
+    category: str = "coffee"
+    image: str = Field(min_length=1)
+    in_stock: bool = True
+
+
+class ProductPatch(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=80)
+    description: str | None = Field(default=None, max_length=200)
+    price: float | None = Field(default=None, gt=0, le=500)
+    category: str | None = None
+    image: str | None = None
+    in_stock: bool | None = None
+
+
+class MilkStockPatch(BaseModel):
+    milk_stock: dict[str, bool]
+
+
+@api_router.get("/admin/products")
+async def admin_products(request: Request):
+    await require_admin(request)
+    return {"products": await db.products.find({}, {"_id": 0}).sort("num", 1).to_list(100)}
+
+
+@api_router.post("/admin/products", status_code=201)
+async def admin_create_product(payload: ProductIn, request: Request):
+    await require_admin(request)
+    count = await db.products.count_documents({})
+    slug = "-".join(part for part in "".join(c.lower() if c.isalnum() else " " for c in payload.name).split()) or f"product-{count + 1}"
+    if await db.products.find_one({"id": slug}):
+        slug = f"{slug}-{uuid.uuid4().hex[:4]}"
+    doc = {
+        "id": slug,
+        "num": f"{count + 1:02d}",
+        **payload.model_dump(),
+        "created_at": datetime.now(timezone.utc),
+    }
+    await db.products.insert_one(doc)
+    doc.pop("_id", None)
+    doc["created_at"] = doc["created_at"].isoformat()
+    return doc
+
+
+@api_router.patch("/admin/products/{product_id}")
+async def admin_update_product(product_id: str, payload: ProductPatch, request: Request):
+    await require_admin(request)
+    updates = {k: v for k, v in payload.model_dump().items() if v is not None}
+    if not updates:
+        raise HTTPException(status_code=400, detail="Nothing to update")
+    updates["updated_at"] = datetime.now(timezone.utc)
+    res = await db.products.update_one({"id": product_id}, {"$set": updates})
+    if not res.matched_count:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return await db.products.find_one({"id": product_id}, {"_id": 0})
+
+
+@api_router.delete("/admin/products/{product_id}")
+async def admin_delete_product(product_id: str, request: Request):
+    await require_admin(request)
+    res = await db.products.delete_one({"id": product_id})
+    if not res.deleted_count:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return {"ok": True}
+
+
+@api_router.patch("/admin/settings")
+async def admin_update_settings(payload: MilkStockPatch, request: Request):
+    await require_admin(request)
+    await db.settings.update_one({"id": "shop"}, {"$set": {"milk_stock": payload.milk_stock}}, upsert=True)
+    return {"milk_stock": payload.milk_stock}
 
 
 # ---------- Staff (shared passcode, JWT token, brute-force lockout) ----------
@@ -682,6 +811,60 @@ async def loyalty_redeem(request: Request):
         "created_at": datetime.now(timezone.utc).isoformat(),
     })
     return {"code": code, "amount": REWARD_AMOUNT}
+
+
+MILESTONE_STAMPS = (5, 9)
+
+
+def build_milestone_email_html(name: str, stamp: int) -> str:
+    if stamp == 5:
+        headline = "Halfway there!"
+        body = "Five coffees in, five stamps blooming. Five more and your next one is on us."
+    else:
+        headline = "One coffee away&hellip;"
+        body = "Nine stamps collected. Your next coffee blooms free &mdash; come and finish the card."
+    return f"""
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F7E9E4;padding:40px 16px;">
+  <tr><td align="center">
+    <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="background:#FFF8F4;padding:40px;border:1px solid #F3DDD7;">
+      <tr><td align="center" style="font-family:Georgia,serif;font-size:28px;letter-spacing:3px;color:#2C2422;">BLOOM &amp; BREW</td></tr>
+      <tr><td align="center" style="padding:28px 0 8px;font-family:Georgia,serif;font-size:22px;color:#2C2422;">{headline}</td></tr>
+      <tr><td align="center" style="font-size:14px;color:#6E5E5A;line-height:1.7;">
+        {name}, {body}</td></tr>
+      <tr><td align="center" style="padding:22px 0;">
+        <span style="display:inline-block;background:#E7B5B2;color:#2C2422;font-family:Georgia,serif;font-size:18px;letter-spacing:2px;padding:12px 28px;border-radius:999px;">{stamp} of 10 stamps</span>
+      </td></tr>
+      <tr><td align="center" style="padding-top:20px;font-family:Georgia,serif;font-style:italic;font-size:15px;color:#DFA4A5;">
+        See you by the bridge &hearts;</td></tr>
+    </table>
+  </td></tr>
+</table>"""
+
+
+async def maybe_send_milestone(email: str, name: str) -> None:
+    if not RESEND_API_KEY:
+        return
+    summary = await loyalty_summary(email)
+    total = summary["total_coffees"]
+    if total == 0:
+        return
+    stamp = total % STAMPS_PER_REWARD
+    if stamp not in MILESTONE_STAMPS:
+        return
+    cycle = total // STAMPS_PER_REWARD
+    key = {"email": email, "cycle": cycle, "stamp": stamp}
+    if await db.loyalty_milestones.find_one(key):
+        return
+    try:
+        await asyncio.to_thread(resend.Emails.send, {
+            "from": SENDER_EMAIL,
+            "to": [email],
+            "subject": f"{stamp} of 10 stamps — your free coffee is getting closer",
+            "html": build_milestone_email_html(name, stamp),
+        })
+        await db.loyalty_milestones.insert_one({**key, "sent_at": datetime.now(timezone.utc)})
+    except Exception as exc:
+        logger.error("Failed to send milestone email to %s: %s", email, exc)
 
 
 # ---------- Gift subscriptions (weekly Stripe subscription) ----------

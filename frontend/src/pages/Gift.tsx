@@ -5,7 +5,7 @@ import { motion } from "motion/react";
 import { toast } from "sonner";
 import { ArrowRight } from "lucide-react";
 import { apiPost } from "@/lib/api";
-import { gbp, IMAGES, PRODUCTS } from "@/lib/products";
+import { gbp, IMAGES, useCatalog } from "@/lib/products";
 import { Reveal } from "@/components/Reveal";
 import { HeartDoodle } from "@/components/Decor";
 import type { CheckoutSessionResponse } from "@/lib/orders";
@@ -39,7 +39,11 @@ const inputClass = "h-11 w-full rounded-full border border-espresso/15 bg-cream 
 
 export default function Gift() {
   const [params] = useSearchParams();
-  const plans = GIFT_IDS.map((id) => PRODUCTS.find((p) => p.id === id)!);
+  const { products } = useCatalog();
+  const plans = GIFT_IDS.flatMap((id) => {
+    const p = products.find((x) => x.id === id);
+    return p && p.in_stock !== false ? [p] : [];
+  });
   const [productId, setProductId] = useState("the-perfect-pair");
   const [flowerColour, setFlowerColour] = useState("Pink");
   const [coffee, setCoffee] = useState("Latte");
@@ -52,7 +56,7 @@ export default function Gift() {
   const [gifterName, setGifterName] = useState("");
   const [gifterEmail, setGifterEmail] = useState("");
 
-  const selected = plans.find((p) => p.id === productId)!;
+  const selected = plans.find((p) => p.id === productId) ?? plans[0];
   const hasCoffee = productId !== "flowers-cup";
 
   useEffect(() => {
@@ -198,8 +202,8 @@ export default function Gift() {
               </div>
 
               <div className="mt-6 flex items-center justify-between border-t border-espresso/10 pt-4">
-                <span className="text-sm text-espresso/60">{selected.name}, weekly</span>
-                <span data-testid="gift-weekly-price" className="font-heading text-2xl text-espresso">{gbp(selected.price)}<span className="text-sm text-espresso/50">/wk</span></span>
+                <span className="text-sm text-espresso/60">{selected?.name ?? "—"}, weekly</span>
+                <span data-testid="gift-weekly-price" className="font-heading text-2xl text-espresso">{gbp(selected?.price ?? 0)}<span className="text-sm text-espresso/50">/wk</span></span>
               </div>
               <button
                 data-testid="gift-start-button"

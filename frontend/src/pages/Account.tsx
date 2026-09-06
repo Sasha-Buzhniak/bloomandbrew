@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { apiGet, apiPost } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useCart } from "@/lib/cart";
-import { gbp, PRODUCTS } from "@/lib/products";
+import { gbp, useCatalog } from "@/lib/products";
 import { HeartDoodle, SectionOverline } from "@/components/Decor";
 import { Reveal } from "@/components/Reveal";
 import { itemCustomisationLabel } from "@/lib/orders";
@@ -57,6 +57,7 @@ export default function Account() {
 
   const queryClient = useQueryClient();
   const { addItem, openCart } = useCart();
+  const { products: catalogProducts } = useCatalog();
   const [rewardCode, setRewardCode] = useState<string | null>(null);
 
   const loyaltyQuery = useQuery({
@@ -79,7 +80,7 @@ export default function Account() {
   const reorder = (o: PlacedOrder) => {
     let added = 0;
     for (const item of o.items) {
-      const product = PRODUCTS.find((p) => p.id === item.product_id);
+      const product = catalogProducts.find((p) => p.id === item.product_id);
       if (!product) continue;
       addItem({
         productId: product.id,
@@ -161,14 +162,25 @@ export default function Account() {
             <p data-testid="account-email" className="mt-1 text-xs text-espresso/50">{user.email}</p>
           </div>
         </div>
-        <button
-          data-testid="sign-out-button"
+        <div className="flex items-center gap-3">
+          {user.is_admin && (
+            <Link
+              to="/admin"
+              data-testid="admin-panel-link"
+              className="inline-flex items-center gap-2 rounded-full bg-espresso px-5 py-3 text-[10px] uppercase tracking-micro text-cream transition-all duration-300 hover:-translate-y-0.5"
+            >
+              Shop Room
+            </Link>
+          )}
+          <button
+            data-testid="sign-out-button"
           onClick={signOut}
           className="inline-flex items-center gap-2 rounded-full border border-espresso/15 px-5 py-3 text-[10px] uppercase tracking-micro text-espresso/70 transition-colors hover:bg-rosemist"
         >
-          <LogOut className="h-3.5 w-3.5" strokeWidth={1.5} />
-          Sign Out
-        </button>
+            <LogOut className="h-3.5 w-3.5" strokeWidth={1.5} />
+            Sign Out
+          </button>
+        </div>
       </Reveal>
 
       {loyaltyQuery.data && (

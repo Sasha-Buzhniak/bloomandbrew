@@ -7,6 +7,7 @@ export interface AuthUser {
   email: string;
   name: string;
   picture?: string | null;
+  is_admin?: boolean;
 }
 
 interface AuthContextValue {

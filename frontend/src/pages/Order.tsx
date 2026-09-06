@@ -5,7 +5,7 @@ import { motion } from "motion/react";
 import { toast } from "sonner";
 import { apiPost } from "@/lib/api";
 import { useCart } from "@/lib/cart";
-import { gbp, PRODUCTS } from "@/lib/products";
+import { gbp, useCatalog } from "@/lib/products";
 import type { Product } from "@/lib/products";
 import { Marquee } from "@/components/Marquee";
 import { HeartDoodle } from "@/components/Decor";
@@ -33,6 +33,7 @@ const PICKUP_TIMES = [
 
 export default function Order() {
   const { items, subtotal, discount, total, promo, clearCart, openCart } = useCart();
+  const { products, milkStock } = useCatalog();
   const [selected, setSelected] = useState<Product | null>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -141,7 +142,7 @@ export default function Order() {
         <div className="grid gap-14 lg:grid-cols-[1fr_380px]">
           {/* Products */}
           <div className="grid grid-cols-2 gap-x-5 gap-y-12 xl:grid-cols-3">
-            {PRODUCTS.map((p, i) => (
+            {products.map((p, i) => (
               <ProductCard key={p.id} product={p} index={i} onCustomize={setSelected} />
             ))}
           </div>
@@ -297,7 +298,7 @@ export default function Order() {
       <Marquee items={["Order Ahead", "Skip the Queue", "Fresh Posies Daily", "Handwritten Notes", "Tower Bridge SE1"]} />
 
       {selected && (
-        <CustomizeDialog key={selected.id} product={selected} open={!!selected} onOpenChange={(o) => !o && setSelected(null)} />
+        <CustomizeDialog key={selected.id} product={selected} open={!!selected} onOpenChange={(o) => !o && setSelected(null)} milkStock={milkStock} />
       )}
     </div>
   );

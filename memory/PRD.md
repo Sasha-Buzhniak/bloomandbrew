@@ -12,6 +12,12 @@ Premium, fully responsive website for a London-based coffee shop + flower concep
 ## User personas
 London commuters, students, couples, friends/colleagues, small-gift buyers, dates, Instagram/TikTok-oriented customers.
 
+## Implemented (2026-09-06, iteration 7)
+- Stamp milestones: after each order receipt, loyalty is recomputed and a one-time "Halfway there!" (5/10) or "One coffee away…" (9/10) nudge email fires per cycle (loyalty_milestones collection, idempotent); verified live at 15 total coffees → stamp-5 email sent
+- Admin panel /admin ("The Shop Room"): gated by Google sign-in + ADMIN_EMAILS env (sashalunar13@gmail.com); add/edit/delete products (auto slug + numbering, photo picker from existing brand photos), per-product In Stock / Sold Out toggle, and a Milk Fridge panel toggling whole/oat/almond/soy availability
+- Catalogue moved to MongoDB (products + settings collections, seeded idempotently at startup from static defaults, image/alt backfill); GET /api/products now DB-driven; out-of-stock products are rejected at order time ("X is sold out right now") and unavailable milks are rejected too; menu/order cards show a "sold out, sorry ♡" state with disabled buttons, customise dialog strikes through sold-out milks; gift page hides sold-out plans
+- Verified: is_admin flag, create/delete product, non-admin 401, sold-out product order 400, oat-milk-out order 400, sold-out badge appears/disappears on menu via admin toggle, 0 broken images, typecheck clean
+
 ## Implemented (2026-09-06, iteration 6)
 - Order-ready texts: checkout collects an optional mobile number (Customer.phone, UK numbers auto-normalised to +44); when a barista marks an order Ready, an SMS fires via Twilio (twilio SDK, asyncio.to_thread, ready_sms_sent flag). DORMANT until TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN + TWILIO_FROM_NUMBER are added to backend/.env — skips gracefully otherwise. Ready email still always sends
 - Loyalty stamps: GET /api/auth/loyalty counts coffee-category items across a signed-in customer's orders (10 per reward); stamp card on /account with 10 hearts; POST /api/auth/loyalty/redeem issues a single-use FREE-XXXXXX code (worth £5.80, locked to the customer's email); build_order validates reward codes from promo_rewards and marks them used. Verified: 9-coffee history + 1 order → 10 stamps → redeem → £11.60 order discounted to £5.80 → reuse rejected 400 → stamps continue at 2

@@ -1,5 +1,8 @@
 const IMG = "https://static.prod-images.emergentagent.com/jobs/c0491736-3096-426b-960f-5b5a7123e01c/images";
 
+import { useQuery } from "@tanstack/react-query";
+import { apiGet } from "@/lib/api";
+
 export const IMAGES = {
   hero: `${IMG}/2647933899e02e35d7b1dbc758eceee2254b4fd0987c42be0ff3e10a4af65c57.jpeg`,
   findusHero: `${IMG}/3ab78a9f6a02de8f05c27b8c9d97e3d298a7f0706d6c61c9e84c92e330c5f50d.jpeg`,
@@ -44,3 +47,31 @@ export const INSTAGRAM_URL = "https://instagram.com/bloomandbrew";
 export const TIKTOK_URL = "https://tiktok.com/@bloomandbrew";
 export const PINTEREST_URL = "https://pinterest.com/bloomandbrew";
 export const DIRECTIONS_URL = "https://www.google.com/maps/dir/?api=1&destination=Tower+Bridge,+London+SE1+2UP";
+
+export type MilkStock = Record<string, boolean>;
+
+export interface CatalogProduct extends Product {
+  in_stock?: boolean;
+}
+
+export function useCatalog(): { products: CatalogProduct[]; milkStock: MilkStock } {
+  const productsQuery = useQuery({
+    queryKey: ["catalog-products"],
+    queryFn: () => apiGet<{ products: CatalogProduct[] }>("/products"),
+    staleTime: 30000,
+    retry: false,
+  });
+  const settingsQuery = useQuery({
+    queryKey: ["catalog-settings"],
+    queryFn: () => apiGet<{ milk_stock: MilkStock }>("/settings/public"),
+    staleTime: 30000,
+    retry: false,
+  });
+  const products =
+    productsQuery.data && productsQuery.data.products.length > 0
+      ? productsQuery.data.products
+      : PRODUCTS.map((p) => ({ ...p, in_stock: true }));
+  const milkStock = settingsQuery.data?.milk_stock ?? { whole: true, oat: true, almond: true, soy: true };
+  return { products, milkStock };
+}
+

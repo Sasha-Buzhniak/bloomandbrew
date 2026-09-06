@@ -5,7 +5,7 @@ import { Marquee } from "@/components/Marquee";
 import { HeartDoodle } from "@/components/Decor";
 import ProductCard from "@/components/ProductCard";
 import CustomizeDialog from "@/components/CustomizeDialog";
-import { PRODUCTS, IMAGES } from "@/lib/products";
+import { IMAGES, useCatalog } from "@/lib/products";
 import type { Product, Category } from "@/lib/products";
 
 const FILTERS: { key: Category | "all"; label: string }[] = [
@@ -19,7 +19,8 @@ const FILTERS: { key: Category | "all"; label: string }[] = [
 export default function Menu() {
   const [filter, setFilter] = useState<Category | "all">("all");
   const [selected, setSelected] = useState<Product | null>(null);
-  const visible = filter === "all" ? PRODUCTS : PRODUCTS.filter((p) => p.category === filter);
+  const { products, milkStock } = useCatalog();
+  const visible = filter === "all" ? products : products.filter((p) => p.category === filter);
 
   return (
     <div data-testid="menu-page">
@@ -71,7 +72,7 @@ export default function Menu() {
       <Marquee items={["London", "Flowers", "Coffee", "Brighter Mornings", "Est. 2024"]} />
 
       {selected && (
-        <CustomizeDialog key={selected.id} product={selected} open={!!selected} onOpenChange={(o) => !o && setSelected(null)} />
+        <CustomizeDialog key={selected.id} product={selected} open={!!selected} onOpenChange={(o) => !o && setSelected(null)} milkStock={milkStock} />
       )}
     </div>
   );

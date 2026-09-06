@@ -5,28 +5,36 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useCart, EMPTY_CUSTOMISATION } from "@/lib/cart";
 import type { Customisation } from "@/lib/cart";
 import { gbp } from "@/lib/products";
-import type { Product } from "@/lib/products";
+import type { Product, MilkStock } from "@/lib/products";
 
 const COFFEES = ["Latte", "Cappuccino", "Americano", "Matcha", "Iced Latte"];
 const MILKS = ["Whole", "Oat", "Almond", "Soy"];
 const FLOWER_COLOURS = ["Pink", "White", "Mixed", "Seasonal"];
 
-function OptionPills({ options, value, onChange, testidPrefix }: { options: string[]; value?: string; onChange: (v: string) => void; testidPrefix: string }) {
+function OptionPills({ options, value, onChange, testidPrefix, disabledOptions = [] }: { options: string[]; value?: string; onChange: (v: string) => void; testidPrefix: string; disabledOptions?: string[] }) {
   return (
     <div className="flex flex-wrap gap-2">
-      {options.map((o) => (
-        <button
-          key={o}
-          type="button"
-          data-testid={`${testidPrefix}-${o.toLowerCase().replace(/\s+/g, "-")}`}
-          onClick={() => onChange(o)}
-          className={`rounded-full border px-4 py-1.5 text-xs transition-all duration-300 ${
-            value === o ? "border-espresso bg-espresso text-cream" : "border-espresso/20 text-espresso/70 hover:border-espresso/50"
-          }`}
-        >
-          {o}
-        </button>
-      ))}
+      {options.map((o) => {
+        const disabled = disabledOptions.includes(o);
+        return (
+          <button
+            key={o}
+            type="button"
+            disabled={disabled}
+            data-testid={`${testidPrefix}-${o.toLowerCase().replace(/\s+/g, "-")}`}
+            onClick={() => onChange(o)}
+            className={`rounded-full border px-4 py-1.5 text-xs transition-all duration-300 ${
+              disabled
+                ? "cursor-not-allowed border-espresso/10 text-espresso/30 line-through"
+                : value === o
+                  ? "border-espresso bg-espresso text-cream"
+                  : "border-espresso/20 text-espresso/70 hover:border-espresso/50"
+            }`}
+          >
+            {o}{disabled ? " · sold out" : ""}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -51,9 +59,10 @@ interface Props {
   product: Product;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  milkStock?: MilkStock;
 }
 
-export default function CustomizeDialog({ product, open, onOpenChange }: Props) {
+export default function CustomizeDialog({ product, open, onOpenChange, milkStock = {} }: Props) {
   const { addItem, openCart } = useCart();
   const hasCoffee = product.category !== "flowers";
   const [c, setC] = useState<Customisation>({ ...EMPTY_CUSTOMISATION, coffee: hasCoffee ? "Latte" : undefined, milk: hasCoffee ? "Oat" : undefined, flowers: "Pink" });
@@ -90,7 +99,7 @@ export default function CustomizeDialog({ product, open, onOpenChange }: Props) 
           {hasCoffee && (
             <div>
               <p className="mb-2 text-[10px] uppercase tracking-micro text-espresso/50">Milk</p>
-              <OptionPills options={MILKS} value={c.milk} onChange={(v) => set({ milk: v })} testidPrefix="customize-milk" />
+              <OptionPills options={MILKS} value={c.milk} onChange={(v) => set({ milk: v })} testidPrefix="customize-milk" disabledOptions={MILKS.filter((m) => milkStock[m.toLowerCase()] === false)} />
             </div>
           )}
           <div>

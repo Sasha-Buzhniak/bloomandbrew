@@ -6,7 +6,7 @@ import { Reveal, RevealImage } from "@/components/Reveal";
 import { Marquee } from "@/components/Marquee";
 import { HeartDoodle, SectionOverline } from "@/components/Decor";
 import ProductCard from "@/components/ProductCard";
-import { IMAGES, PRODUCTS, INSTAGRAM_URL } from "@/lib/products";
+import { IMAGES, PRODUCTS, INSTAGRAM_URL, useCatalog } from "@/lib/products";
 
 const HERO_LINES = ["GOOD COFFEE", "BRIGHTER", "MORNINGS"];
 
@@ -43,7 +43,8 @@ export default function Home() {
   const heroRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: heroRef, offset: ["start start", "end start"] });
   const heroY = useTransform(scrollYProgress, [0, 1], ["0%", "16%"]);
-  const featured = FEATURED_IDS.map((id) => PRODUCTS.find((p) => p.id === id)!).filter(Boolean);
+  const { products } = useCatalog();
+  const featured = FEATURED_IDS.map((id) => products.find((p) => p.id === id)).filter((p): p is NonNullable<typeof p> => Boolean(p));
 
   return (
     <div data-testid="home-page">

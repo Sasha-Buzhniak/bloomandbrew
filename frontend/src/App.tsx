@@ -20,6 +20,7 @@ import Barista from "@/pages/Barista";
 import Gift from "@/pages/Gift";
 import GiftSuccess from "@/pages/GiftSuccess";
 import Account from "@/pages/Account";
+import Admin from "@/pages/Admin";
 import AuthCallback from "@/pages/AuthCallback";
 import { AuthProvider } from "@/lib/auth";
 
@@ -67,6 +68,7 @@ function AppShell() {
             <Route path="/gift" element={<Gift />} />
             <Route path="/gift/success" element={<GiftSuccess />} />
             <Route path="/account" element={<Account />} />
+            <Route path="/admin" element={<Admin />} />
             <Route path="*" element={<Home />} />
           </Routes>
         </motion.main>
