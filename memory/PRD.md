@@ -12,6 +12,12 @@ Premium, fully responsive website for a London-based coffee shop + flower concep
 ## User personas
 London commuters, students, couples, friends/colleagues, small-gift buyers, dates, Instagram/TikTok-oriented customers.
 
+## Implemented (2026-09-06, iteration 6)
+- Order-ready texts: checkout collects an optional mobile number (Customer.phone, UK numbers auto-normalised to +44); when a barista marks an order Ready, an SMS fires via Twilio (twilio SDK, asyncio.to_thread, ready_sms_sent flag). DORMANT until TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN + TWILIO_FROM_NUMBER are added to backend/.env — skips gracefully otherwise. Ready email still always sends
+- Loyalty stamps: GET /api/auth/loyalty counts coffee-category items across a signed-in customer's orders (10 per reward); stamp card on /account with 10 hearts; POST /api/auth/loyalty/redeem issues a single-use FREE-XXXXXX code (worth £5.80, locked to the customer's email); build_order validates reward codes from promo_rewards and marks them used. Verified: 9-coffee history + 1 order → 10 stamps → redeem → £11.60 order discounted to £5.80 → reuse rejected 400 → stamps continue at 2
+- Reorder favourites: "Again" button on every account order re-adds items with exact customisations to the basket and opens the drawer
+- Branded sender: still pending user's Resend dashboard + DNS steps (send-only API key can't do it programmatically)
+
 ## Implemented (2026-09-06, iteration 5)
 - Emergent-managed Google sign-in: /account ("My Mornings") with Continue with Google → auth.emergentagent.com → AuthCallback exchanges session_id via backend-only GET /api/auth/session-data, httpOnly session_token cookie (7 days, samesite=none, secure), users + user_sessions collections with custom user_id (never _id), GET /api/auth/me (cookie then Bearer), POST /api/auth/logout, GET /api/auth/orders (order history + gift subscriptions matched by email)
 - AuthProvider with three-state check that skips /auth/me during the OAuth hash callback (race-condition-safe, hash read from useLocation); navbar account icon; checkout prefills name/email when signed in

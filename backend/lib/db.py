@@ -31,6 +31,7 @@ INDEXES: dict[str, list[IndexModel]] = {
         IndexModel([("email", ASCENDING)], name="email", unique=True),
     ],
     "user_sessions": [IndexModel([("session_token", ASCENDING)], name="session_token", unique=True)],
+    "promo_rewards": [IndexModel([("code", ASCENDING)], name="code", unique=True)],
 }
 
 

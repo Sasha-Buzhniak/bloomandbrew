@@ -173,6 +173,7 @@ class Customer(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     email: EmailStr
     pickup_time: str = "asap"
+    phone: str | None = None
 
 
 class OrderCreate(BaseModel):
@@ -213,7 +214,7 @@ class TrackResponse(BaseModel):
     minutes_elapsed: int
 
 
-def build_order(payload: OrderCreate, payment_method: str) -> Order:
+async def build_order(payload: OrderCreate, payment_method: str) -> Order:
     items: list[OrderItem] = []
     subtotal = 0.0
     for item in payload.items:
@@ -231,22 +232,32 @@ def build_order(payload: OrderCreate, payment_method: str) -> Order:
         ))
 
     promo = payload.promo_code.strip().upper() if payload.promo_code else None
-    rate = PROMO_CODES.get(promo, 0.0) if promo else 0.0
-    if promo and rate == 0.0:
-        raise HTTPException(status_code=400, detail="Invalid promo code")
+    discount = 0.0
+    reward_code: str | None = None
+    if promo:
+        if promo in PROMO_CODES:
+            discount = round(subtotal * PROMO_CODES[promo], 2)
+        else:
+            reward = await db.promo_rewards.find_one({"code": promo, "used": False, "email": payload.customer.email.strip().lower()})
+            if not reward:
+                raise HTTPException(status_code=400, detail="Invalid promo code")
+            discount = round(min(float(reward["amount"]), subtotal), 2)
+            reward_code = promo
 
-    discount = round(subtotal * rate, 2)
-    return Order(
+    order = Order(
         order_number=f"BB-{uuid.uuid4().hex[:6].upper()}",
         items=items,
         customer=payload.customer,
-        promo_code=promo if rate else None,
+        promo_code=promo if discount else None,
         subtotal=round(subtotal, 2),
         discount=discount,
         total=round(subtotal - discount, 2),
         payment_method=payment_method,
         payment_status="pending" if payment_method == "online" else "pay_at_counter",
     )
+    if reward_code:
+        await db.promo_rewards.update_one({"code": reward_code}, {"$set": {"used": True, "used_in_order": order.order_number}})
+    return order
 
 
 @api_router.get("/")
@@ -261,7 +272,7 @@ async def get_products():
 
 @api_router.post("/orders", response_model=Order, status_code=201)
 async def create_order(payload: OrderCreate):
-    order = build_order(payload, payload.payment_method if payload.payment_method in ("counter", "online") else "counter")
+    order = await build_order(payload, payload.payment_method if payload.payment_method in ("counter", "online") else "counter")
     await db.orders.insert_one(order.model_dump())
     if order.payment_method == "counter":
         await send_confirmation_email(order)
@@ -270,7 +281,7 @@ async def create_order(payload: OrderCreate):
 
 @api_router.post("/orders/checkout", status_code=201)
 async def create_order_checkout(payload: CheckoutCreate):
-    order = build_order(payload, "online")
+    order = await build_order(payload, "online")
     await db.orders.insert_one(order.model_dump())
 
     line_items = [
@@ -617,9 +628,60 @@ async def staff_update_status(order_number: str, payload: StaffStatusUpdate, req
         raise HTTPException(status_code=404, detail="Order not found")
     if payload.status == "ready":
         doc = await db.orders.find_one({"order_number": order_number.strip().upper()}, {"_id": 0})
-        if doc and not doc.get("ready_email_sent"):
-            await send_ready_email(Order(**doc))
+        if doc:
+            order = Order(**doc)
+            if not doc.get("ready_email_sent"):
+                await send_ready_email(order)
+            if not doc.get("ready_sms_sent"):
+                await send_ready_sms(order)
     return {"ok": True, "status": payload.status}
+
+
+# ---------- Loyalty stamps (every tenth coffee blooms free) ----------
+
+COFFEE_COUNTING_CATEGORIES = {"coffee", "combo", "seasonal"}
+STAMPS_PER_REWARD = 10
+REWARD_AMOUNT = 5.80
+
+
+async def loyalty_summary(email: str) -> dict:
+    cursor = db.orders.find({"customer.email": email}, {"_id": 0, "items": 1})
+    total_coffees = 0
+    async for doc in cursor:
+        for item in doc.get("items", []):
+            product = PRODUCT_MAP.get(item.get("product_id"))
+            if product and product["category"] in COFFEE_COUNTING_CATEGORIES:
+                total_coffees += item.get("quantity", 1)
+    rewards_issued = await db.promo_rewards.count_documents({"email": email})
+    return {
+        "total_coffees": total_coffees,
+        "stamps": total_coffees % STAMPS_PER_REWARD,
+        "stamps_needed": STAMPS_PER_REWARD,
+        "rewards_available": max(0, total_coffees // STAMPS_PER_REWARD - rewards_issued),
+    }
+
+
+@api_router.get("/auth/loyalty")
+async def loyalty_status(request: Request):
+    user = await get_current_user(request)
+    return await loyalty_summary(user["email"])
+
+
+@api_router.post("/auth/loyalty/redeem")
+async def loyalty_redeem(request: Request):
+    user = await get_current_user(request)
+    summary = await loyalty_summary(user["email"])
+    if summary["rewards_available"] < 1:
+        raise HTTPException(status_code=400, detail="No free coffee ready yet — keep blooming!")
+    code = f"FREE-{uuid.uuid4().hex[:6].upper()}"
+    await db.promo_rewards.insert_one({
+        "code": code,
+        "amount": REWARD_AMOUNT,
+        "email": user["email"],
+        "used": False,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    return {"code": code, "amount": REWARD_AMOUNT}
 
 
 # ---------- Gift subscriptions (weekly Stripe subscription) ----------
@@ -765,6 +827,34 @@ async def create_gift_subscription(payload: GiftSubscriptionCreate):
 
 
 # ---------- Ready alerts & weekly gift reminders ----------
+
+
+TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID", "")
+TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN", "")
+TWILIO_FROM_NUMBER = os.environ.get("TWILIO_FROM_NUMBER", "")
+
+
+async def send_ready_sms(order: Order) -> None:
+    if not (TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN and TWILIO_FROM_NUMBER):
+        return
+    phone = order.customer.phone
+    if not phone:
+        return
+    if not phone.startswith("+"):
+        phone = "+44" + phone.lstrip("0")
+    try:
+        from twilio.rest import Client
+        twilio_client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+        await asyncio.to_thread(
+            lambda: twilio_client.messages.create(
+                to=phone,
+                from_=TWILIO_FROM_NUMBER,
+                body=f"Bloom & Brew: order {order.order_number} is ready — come and get it while it's warm! Tower Bridge, SE1 2UP",
+            )
+        )
+        await db.orders.update_one({"id": order.id}, {"$set": {"ready_sms_sent": True}})
+    except Exception as exc:
+        logger.error("Failed to send ready SMS for %s: %s", order.order_number, exc)
 
 
 def build_ready_email_html(order: Order) -> str:

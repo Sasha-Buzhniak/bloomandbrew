@@ -1,15 +1,24 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
-import { ArrowRight, LogOut } from "lucide-react";
-import { apiGet } from "@/lib/api";
+import { ArrowRight, Copy, LogOut, Repeat } from "lucide-react";
+import { toast } from "sonner";
+import { apiGet, apiPost } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { gbp } from "@/lib/products";
+import { useCart } from "@/lib/cart";
+import { gbp, PRODUCTS } from "@/lib/products";
 import { HeartDoodle, SectionOverline } from "@/components/Decor";
 import { Reveal } from "@/components/Reveal";
 import { itemCustomisationLabel } from "@/lib/orders";
 import type { PlacedOrder } from "@/lib/orders";
+
+interface LoyaltyStatus {
+  total_coffees: number;
+  stamps: number;
+  stamps_needed: number;
+  rewards_available: number;
+}
 
 interface AccountOrder {
   order: PlacedOrder;
@@ -45,6 +54,55 @@ export default function Account() {
     enabled: !!user,
     retry: false,
   });
+
+  const queryClient = useQueryClient();
+  const { addItem, openCart } = useCart();
+  const [rewardCode, setRewardCode] = useState<string | null>(null);
+
+  const loyaltyQuery = useQuery({
+    queryKey: ["loyalty"],
+    queryFn: () => apiGet<LoyaltyStatus>("/auth/loyalty"),
+    enabled: !!user,
+    retry: false,
+  });
+
+  const redeemMutation = useMutation({
+    mutationFn: () => apiPost<{ code: string; amount: number }>("/auth/loyalty/redeem"),
+    onSuccess: (d) => {
+      setRewardCode(d.code);
+      void queryClient.invalidateQueries({ queryKey: ["loyalty"] });
+      toast.success("Your free coffee is ready to claim ♡");
+    },
+    onError: () => toast.error("No free coffee ready yet — keep blooming!"),
+  });
+
+  const reorder = (o: PlacedOrder) => {
+    let added = 0;
+    for (const item of o.items) {
+      const product = PRODUCTS.find((p) => p.id === item.product_id);
+      if (!product) continue;
+      addItem({
+        productId: product.id,
+        name: product.name,
+        price: product.price,
+        image: product.image,
+        quantity: item.quantity,
+        customisation: {
+          coffee: item.customisation.coffee ?? undefined,
+          milk: item.customisation.milk ?? undefined,
+          flowers: item.customisation.flowers ?? undefined,
+          flowerBranch: item.customisation.flower_branch,
+          giftCard: item.customisation.gift_card,
+          giftNote: item.customisation.gift_note ?? undefined,
+        },
+      });
+      added += 1;
+    }
+    if (added > 0) {
+      toast.success("Added back to your basket ♡");
+      openCart();
+    }
+  };
 
   useEffect(() => {
     if (user === false && !passedUser) {
@@ -113,6 +171,50 @@ export default function Account() {
         </button>
       </Reveal>
 
+      {loyaltyQuery.data && (
+        <Reveal delay={0.05} className="mt-12">
+          <div data-testid="loyalty-card" className="border border-espresso/10 bg-cream p-7">
+            <div className="flex flex-wrap items-center justify-between gap-5">
+              <div>
+                <p className="font-script text-2xl text-blushdeep">loyalty blooms ♡</p>
+                <h2 className="mt-1 font-heading text-xl uppercase tracking-editorial text-espresso">Your Stamp Card</h2>
+                <p data-testid="loyalty-progress-text" className="mt-2 text-sm text-espresso/60">
+                  {loyaltyQuery.data.stamps} of {loyaltyQuery.data.stamps_needed} coffees — your tenth blooms free
+                </p>
+              </div>
+              <div className="flex gap-1.5">
+                {Array.from({ length: loyaltyQuery.data.stamps_needed }).map((_, i) => (
+                  <HeartDoodle key={i} className={`h-6 w-6 ${i < loyaltyQuery.data.stamps ? "text-blushdeep" : "text-espresso/15"}`} />
+                ))}
+              </div>
+            </div>
+            {rewardCode ? (
+              <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-espresso/10 pt-5">
+                <span data-testid="loyalty-reward-code" className="font-heading text-lg tracking-editorial text-espresso">{rewardCode}</span>
+                <button
+                  data-testid="loyalty-copy-button"
+                  onClick={() => { void navigator.clipboard.writeText(rewardCode); toast.success("Copied — pop it in the promo box ♡"); }}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-espresso/20 px-4 py-2 text-[10px] uppercase tracking-micro text-espresso transition-colors hover:bg-rosemist"
+                >
+                  <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  Copy
+                </button>
+                <span className="text-xs text-espresso/50">Worth a free coffee (up to £5.80) — use it as the promo code on your next order.</span>
+              </div>
+            ) : loyaltyQuery.data.rewards_available > 0 ? (
+              <button
+                data-testid="loyalty-redeem-button"
+                onClick={() => redeemMutation.mutate()}
+                disabled={redeemMutation.isPending}
+                className="mt-5 rounded-full bg-blush px-6 py-3 text-[11px] font-medium uppercase tracking-micro text-espresso transition-all duration-300 hover:-translate-y-0.5 hover:bg-blushdeep disabled:opacity-50"
+              >
+                Redeem Your Free Coffee
+              </button>
+            ) : null}
+          </div>
+        </Reveal>
+      )}
+
       {gifts.length > 0 && (
         <Reveal delay={0.1} className="mt-12">
           <SectionOverline>Weekly Gifts</SectionOverline>
@@ -167,6 +269,14 @@ export default function Account() {
                 </div>
                 <div className="flex items-center gap-4">
                   <span className="font-heading text-lg text-espresso">{gbp(o.total)}</span>
+                  <button
+                    data-testid={`account-reorder-${o.order_number}`}
+                    onClick={() => reorder(o)}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-espresso/20 px-4 py-2 text-[10px] uppercase tracking-micro text-espresso transition-colors hover:bg-rosemist"
+                  >
+                    <Repeat className="h-3.5 w-3.5" strokeWidth={1.5} />
+                    Again
+                  </button>
                   <Link
                     to={`/track?number=${o.order_number}`}
                     data-testid={`account-track-${o.order_number}`}

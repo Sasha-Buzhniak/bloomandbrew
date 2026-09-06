@@ -36,6 +36,7 @@ export default function Order() {
   const [selected, setSelected] = useState<Product | null>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [pickup, setPickup] = useState("asap");
   const [confirmed, setConfirmed] = useState<OrderResponse | null>(null);
 
@@ -68,7 +69,7 @@ export default function Order() {
         gift_note: i.customisation.giftNote ?? null,
       },
     })),
-    customer: { name, email, pickup_time: pickup },
+    customer: { name, email, pickup_time: pickup, phone: phone.trim() || null },
     promo_code: promo,
   });
 
@@ -249,6 +250,14 @@ export default function Order() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="Email for your receipt"
+                    className="h-11 w-full rounded-full border border-espresso/15 bg-page px-5 text-sm outline-none placeholder:text-espresso/40 focus:border-blushdeep"
+                  />
+                  <input
+                    data-testid="checkout-phone-input"
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="Mobile for a ready-text (optional)"
                     className="h-11 w-full rounded-full border border-espresso/15 bg-page px-5 text-sm outline-none placeholder:text-espresso/40 focus:border-blushdeep"
                   />
                   <select
