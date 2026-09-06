@@ -24,7 +24,9 @@ from lib.db import client, db, ensure_indexes
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.index_task = asyncio.create_task(ensure_indexes())
+    app.state.reminder_task = asyncio.create_task(gift_reminder_loop())
     yield
+    app.state.reminder_task.cancel()
     client.close()
 
 
@@ -514,6 +516,10 @@ async def staff_update_status(order_number: str, payload: StaffStatusUpdate, req
     )
     if not res.matched_count:
         raise HTTPException(status_code=404, detail="Order not found")
+    if payload.status == "ready":
+        doc = await db.orders.find_one({"order_number": order_number.strip().upper()}, {"_id": 0})
+        if doc and not doc.get("ready_email_sent"):
+            await send_ready_email(Order(**doc))
     return {"ok": True, "status": payload.status}
 
 
@@ -578,7 +584,7 @@ async def send_gift_email(sub: dict) -> None:
 async def mark_gift_active(gift_id: str, stripe_subscription_id: str | None) -> None:
     res = await db.gift_subscriptions.update_one(
         {"id": gift_id, "status": {"$ne": "active"}},
-        {"$set": {"status": "active", "stripe_subscription_id": stripe_subscription_id, "updated_at": datetime.now(timezone.utc)}},
+        {"$set": {"status": "active", "stripe_subscription_id": stripe_subscription_id, "activated_at": datetime.now(timezone.utc), "updated_at": datetime.now(timezone.utc)}},
     )
     if res.modified_count:
         sub = await db.gift_subscriptions.find_one({"id": gift_id}, {"_id": 0})
@@ -657,6 +663,108 @@ async def create_gift_subscription(payload: GiftSubscriptionCreate):
         "updated_at": datetime.now(timezone.utc),
     })
     return {"checkout_url": session.url, "session_id": session.id, "order_number": f"GIFT-{sub_id[:6].upper()}"}
+
+
+# ---------- Ready alerts & weekly gift reminders ----------
+
+
+def build_ready_email_html(order: Order) -> str:
+    return f"""
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F7E9E4;padding:40px 16px;">
+  <tr><td align="center">
+    <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="background:#FFF8F4;padding:40px;border:1px solid #F3DDD7;">
+      <tr><td align="center" style="font-family:Georgia,serif;font-size:28px;letter-spacing:3px;color:#2C2422;">BLOOM &amp; BREW</td></tr>
+      <tr><td align="center" style="padding-top:6px;font-size:11px;letter-spacing:3px;color:#6E5E5A;">COFFEE &hearts; FLOWERS &hearts; A HAPPIER YOU</td></tr>
+      <tr><td align="center" style="padding:28px 0 8px;font-family:Georgia,serif;font-size:22px;color:#2C2422;">It&apos;s ready, {order.customer.name}!</td></tr>
+      <tr><td align="center" style="font-size:14px;color:#6E5E5A;line-height:1.7;">
+        Your order is waiting at the counter &mdash; come and get it while it&apos;s warm.</td></tr>
+      <tr><td align="center" style="padding:22px 0;">
+        <span style="display:inline-block;background:#E7B5B2;color:#2C2422;font-family:Georgia,serif;font-size:20px;letter-spacing:2px;padding:12px 28px;border-radius:999px;">{order.order_number}</span>
+      </td></tr>
+      <tr><td align="center" style="font-size:12px;color:#6E5E5A;line-height:1.7;">
+        Tower Bridge, London SE1 2UP</td></tr>
+      <tr><td align="center" style="padding-top:26px;font-family:Georgia,serif;font-style:italic;font-size:15px;color:#DFA4A5;">
+        Same coffee, more love &hearts;</td></tr>
+    </table>
+  </td></tr>
+</table>"""
+
+
+async def send_ready_email(order: Order) -> None:
+    if not RESEND_API_KEY:
+        logger.info("RESEND_API_KEY not set — skipping ready email for %s", order.order_number)
+        return
+    try:
+        await asyncio.to_thread(resend.Emails.send, {
+            "from": SENDER_EMAIL,
+            "to": [order.customer.email],
+            "subject": f"Order {order.order_number} is ready — come and get it while it's warm",
+            "html": build_ready_email_html(order),
+        })
+        await db.orders.update_one({"id": order.id}, {"$set": {"ready_email_sent": True}})
+    except Exception as exc:
+        logger.error("Failed to send ready email for %s: %s", order.order_number, exc)
+
+
+def ordinal(n: int) -> str:
+    if 10 <= n % 100 <= 20:
+        return f"{n}th"
+    return f"{n}{ {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th') }"
+
+
+def build_gift_reminder_html(sub: dict, week: int) -> str:
+    return f"""
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F7E9E4;padding:40px 16px;">
+  <tr><td align="center">
+    <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="background:#FFF8F4;padding:40px;border:1px solid #F3DDD7;">
+      <tr><td align="center" style="font-family:Georgia,serif;font-size:28px;letter-spacing:3px;color:#2C2422;">BLOOM &amp; BREW</td></tr>
+      <tr><td align="center" style="padding:28px 0 8px;font-family:Georgia,serif;font-size:22px;color:#2C2422;">Week {week} of blooms went out today</td></tr>
+      <tr><td align="center" style="font-size:14px;color:#6E5E5A;line-height:1.7;">
+        This morning we hand-made a fresh <strong>{sub['product_name']}</strong> for <strong>{sub['recipient_name']}</strong>,<br/>
+        tied this week&apos;s {sub['flower_colour'].lower()} posy, and wrote your note on the card &mdash; again.</td></tr>
+      <tr><td align="center" style="padding:22px 0;">
+        <span style="display:inline-block;background:#E7B5B2;color:#2C2422;font-family:Georgia,serif;font-size:18px;letter-spacing:2px;padding:12px 28px;border-radius:999px;">the {ordinal(week)} week of brighter mornings</span>
+      </td></tr>
+      <tr><td align="center" style="font-size:12px;color:#6E5E5A;line-height:1.7;">
+        Pause or cancel anytime by replying to this email.</td></tr>
+      <tr><td align="center" style="padding-top:26px;font-family:Georgia,serif;font-style:italic;font-size:15px;color:#DFA4A5;">
+        Same coffee, more love &hearts;</td></tr>
+    </table>
+  </td></tr>
+</table>"""
+
+
+async def send_gift_reminders() -> None:
+    if not RESEND_API_KEY:
+        return
+    now = datetime.now(timezone.utc)
+    cursor = db.gift_subscriptions.find({"status": "active", "activated_at": {"$exists": True}})
+    async for sub in cursor:
+        activated = sub["activated_at"]
+        if activated.tzinfo is None:
+            activated = activated.replace(tzinfo=timezone.utc)
+        week = (now - activated).days // 7
+        if week >= 1 and sub.get("last_reminder_week", 0) < week:
+            try:
+                await asyncio.to_thread(resend.Emails.send, {
+                    "from": SENDER_EMAIL,
+                    "to": [sub["gifter_email"]],
+                    "subject": f"Week {week} of blooms went out today ♡",
+                    "html": build_gift_reminder_html(sub, week),
+                })
+                await db.gift_subscriptions.update_one({"id": sub["id"]}, {"$set": {"last_reminder_week": week}})
+                logger.info("Gift reminder week %s sent for subscription %s", week, sub["id"])
+            except Exception as exc:
+                logger.error("Failed to send gift reminder for %s: %s", sub["id"], exc)
+
+
+async def gift_reminder_loop() -> None:
+    while True:
+        try:
+            await send_gift_reminders()
+        except Exception as exc:
+            logger.error("Gift reminder loop error: %s", exc)
+        await asyncio.sleep(3600)
 
 
 app.include_router(api_router)

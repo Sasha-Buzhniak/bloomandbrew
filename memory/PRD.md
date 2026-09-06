@@ -12,6 +12,11 @@ Premium, fully responsive website for a London-based coffee shop + flower concep
 ## User personas
 London commuters, students, couples, friends/colleagues, small-gift buyers, dates, Instagram/TikTok-oriented customers.
 
+## Implemented (2026-09-06, iteration 4)
+- Order-ready alerts: when a barista marks an order Ready in /barista, the customer is emailed "come and get it while it's warm" (idempotent via ready_email_sent flag); verified live for BB-E5F238
+- Gift reminders: hourly background task emails the giver "Week N of blooms went out today ♡" on each weekly anniversary of an active subscription (activated_at, last_reminder_week); verified live (week-1 reminder sent for the test subscription)
+- Branded sender: BLOCKED on two manual steps — (1) the Resend API key is send-only, so the domain must be added in the Resend dashboard (resend.com/domains → bloomandbrew.london), (2) DNS records added at the registrar + verified; then set SENDER_EMAIL=orders@bloomandbrew.london in backend/.env and restart backend. Until then receipts/alerts only reach the verified address sashalunar13@gmail.com
+
 ## Implemented (2026-09-05, iteration 3)
 - Receipt emails ACTIVATED: Resend key in backend/.env; blush HTML receipt sends on counter-order creation and on paid online orders; gift-subscription welcome email added; verified delivered for BB-E5F238 (confirmation_sent=True). Free-tier limit: only delivers to the verified address (sashalunar13@gmail.com) until a domain is verified in Resend
 - Barista dashboard /barista: shared passcode "bloom-staff" → JWT staff token (12h, sessionStorage), brute-force lockout (5 tries → 15 min, Mongo login_attempts), constant-time passcode compare; live order board (20s auto-refresh) with payment badges, customisations, gift notes, one-tap status pills (Received → Preparing → Ready → Collected); overrides instantly reflected on customer /track page
