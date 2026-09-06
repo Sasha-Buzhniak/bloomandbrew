@@ -7,6 +7,7 @@ import { CartProvider } from "@/lib/cart";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import CartDrawer from "@/components/CartDrawer";
+import InstallBanner from "@/components/InstallBanner";
 import Home from "@/pages/Home";
 import Menu from "@/pages/Menu";
 import OurStory from "@/pages/OurStory";
@@ -75,6 +76,7 @@ function AppShell() {
       </AnimatePresence>
       <Footer />
       <CartDrawer />
+      <InstallBanner />
       <Toaster position="bottom-center" />
     </>
   );

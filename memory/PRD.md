@@ -12,6 +12,11 @@ Premium, fully responsive website for a London-based coffee shop + flower concep
 ## User personas
 London commuters, students, couples, friends/colleagues, small-gift buyers, dates, Instagram/TikTok-oriented customers.
 
+## Implemented (2026-09-06, iteration 10)
+- Installable mobile app (PWA): generated line-art app icon (192/512/maskable/apple-touch via PIL), manifest.webmanifest (standalone, blush theme colour), iOS meta tags (apple-mobile-web-app-capable etc.), service worker (app-shell precache, cache-first for brand photos/fonts/icons, network-first navigations with offline fallback, /api always live), mobile "Take Us Home" install banner (iOS Share→Add to Home Screen instructions, dismiss persisted)
+- Verified: manifest/sw/icons 200 via public URL, SW registers at full scope, banner shows on mobile and dismisses, typecheck clean
+- Note: a true App Store binary needs Capacitor/Xcode outside this pod — the PWA is the installable mobile app for now
+
 ## Implemented (2026-09-06, iteration 9)
 - Account settings on /account: Edit Profile → change name, set birthday (validated YYYY-MM-DD, not future/pre-1900), and upload a profile photo (JPG/PNG/WEBP ≤5MB) — photos go to Emergent object storage (EMERGENT_LLM_KEY, app prefix bloom-and-brew/, soft-delete files collection, served publicly via GET /api/files/{path}); PATCH /api/auth/profile updates name/DOB; AuthUser now carries date_of_birth
 - Verified: profile PATCH, invalid DOB 400, avatar upload → /api/files 200 image/jpeg via public ingress, 404 on unknown paths, browser save flow with toast, typecheck clean
