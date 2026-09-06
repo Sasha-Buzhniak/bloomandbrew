@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { motion } from "motion/react";
 import { toast } from "sonner";
@@ -32,8 +32,17 @@ const PICKUP_TIMES = [
 ];
 
 export default function Order() {
-  const { items, subtotal, discount, total, promo, clearCart, openCart } = useCart();
+  const { items, count, subtotal, discount, total, promo, clearCart, openCart } = useCart();
   const { products, milkStock } = useCatalog();
+  const checkoutRef = useRef<HTMLElement>(null);
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.hash === "#checkout") {
+      const timer = window.setTimeout(() => checkoutRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 350);
+      return () => window.clearTimeout(timer);
+    }
+  }, [location.hash]);
   const [selected, setSelected] = useState<Product | null>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -148,7 +157,7 @@ export default function Order() {
           </div>
 
           {/* Checkout panel */}
-          <aside className="lg:sticky lg:top-28 lg:self-start">
+          <aside ref={checkoutRef} id="checkout" className="scroll-mt-28 lg:sticky lg:top-28 lg:self-start">
             {confirmed ? (
               <motion.div
                 data-testid="order-confirmation"
@@ -294,6 +303,17 @@ export default function Order() {
           </aside>
         </div>
       </section>
+
+      {items.length > 0 && !confirmed && (
+        <button
+          data-testid="mobile-checkout-bar"
+          onClick={() => checkoutRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+          className="fixed inset-x-4 bottom-4 z-40 flex items-center justify-between rounded-full bg-espresso px-6 py-4 text-cream shadow-[0_16px_40px_rgba(44,36,34,0.35)] lg:hidden"
+        >
+          <span className="text-[11px] uppercase tracking-micro">Checkout · {count} {count === 1 ? "item" : "items"}</span>
+          <span className="font-heading text-lg">{gbp(total)}</span>
+        </button>
+      )}
 
       <Marquee items={["Order Ahead", "Skip the Queue", "Fresh Posies Daily", "Handwritten Notes", "Tower Bridge SE1"]} />
 

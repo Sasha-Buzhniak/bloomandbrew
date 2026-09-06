@@ -103,7 +103,7 @@ export default function CartDrawer() {
             </dl>
             <button
               data-testid="cart-checkout-button"
-              onClick={() => { closeCart(); navigate("/order"); }}
+              onClick={() => { closeCart(); navigate("/order#checkout"); }}
               className="mt-4 w-full rounded-full bg-blush py-3.5 text-[11px] font-medium uppercase tracking-micro text-espresso transition-all duration-300 hover:-translate-y-0.5 hover:bg-blushdeep hover:shadow-md"
             >
               Review &amp; Checkout

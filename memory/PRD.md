@@ -12,6 +12,12 @@ Premium, fully responsive website for a London-based coffee shop + flower concep
 ## User personas
 London commuters, students, couples, friends/colleagues, small-gift buyers, dates, Instagram/TikTok-oriented customers.
 
+## Implemented (2026-09-06, iteration 8 — bug fixes)
+- Fixed mobile product cards: price/buttons overlapped on ~180px-wide cards (footer now wraps, smaller pills on mobile) — this overlap was also swallowing Add-button taps, which caused the reported "checkout does nothing"
+- Fixed mobile checkout UX: cart "Review & Checkout" now deep-links to /order#checkout and auto-scrolls to the checkout panel; added a floating "Checkout · N items · £X" bar on mobile while the basket is non-empty
+- Fixed nav tagline wrapping on small screens (whitespace-nowrap)
+- Verified via full mobile-viewport browser pass (390px): add → drawer → checkout → form → order placed (BB-45B822); cards clean on /order and /menu
+
 ## Implemented (2026-09-06, iteration 7)
 - Stamp milestones: after each order receipt, loyalty is recomputed and a one-time "Halfway there!" (5/10) or "One coffee away…" (9/10) nudge email fires per cycle (loyalty_milestones collection, idempotent); verified live at 15 total coffees → stamp-5 email sent
 - Admin panel /admin ("The Shop Room"): gated by Google sign-in + ADMIN_EMAILS env (sashalunar13@gmail.com); add/edit/delete products (auto slug + numbering, photo picker from existing brand photos), per-product In Stock / Sold Out toggle, and a Milk Fridge panel toggling whole/oat/almond/soy availability

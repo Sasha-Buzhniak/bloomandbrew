@@ -21,7 +21,7 @@ function Logo() {
   return (
     <Link to="/" data-testid="nav-logo" className="group flex flex-col items-center leading-none">
       <span className="font-script text-3xl text-espresso md:text-4xl">Bloom &amp; Brew</span>
-      <span className="mt-1 flex items-center gap-1.5 text-[8px] uppercase tracking-[0.3em] text-espresso/60 md:text-[9px]">
+      <span className="mt-1 flex items-center gap-1.5 whitespace-nowrap text-[8px] uppercase tracking-[0.3em] text-espresso/60 md:text-[9px]">
         Coffee <HeartDoodle className="h-2.5 w-2.5 text-blushdeep" /> Flowers <HeartDoodle className="h-2.5 w-2.5 text-blushdeep" /> A Happier You
       </span>
     </Link>

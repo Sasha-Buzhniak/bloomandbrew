@@ -39,19 +39,19 @@ export default function ProductCard({ product, index = 0, onCustomize }: Props) 
         </RevealImage>
         <h3 className="mt-5 font-heading text-xl text-espresso">{product.name}</h3>
         <p className="mt-1 text-sm leading-relaxed text-espresso/60">{product.description}</p>
-        <div className="mt-auto flex items-center justify-between border-t border-espresso/10 pt-4">
-          <span data-testid={`product-price-${product.id}`} className="font-heading text-lg text-espresso">{gbp(product.price)}</span>
+        <div className="mt-auto flex flex-wrap items-center justify-between gap-x-2 gap-y-2.5 border-t border-espresso/10 pt-4">
+          <span data-testid={`product-price-${product.id}`} className="font-heading text-base text-espresso sm:text-lg">{gbp(product.price)}</span>
           {soldOut ? (
-            <span className="rounded-full border border-espresso/15 px-4 py-2 text-[10px] uppercase tracking-micro text-espresso/40">
+            <span className="rounded-full border border-espresso/15 px-3 py-2 text-[9px] uppercase tracking-micro text-espresso/40 sm:px-4 sm:text-[10px]">
               Sold Out
             </span>
           ) : (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
               {onCustomize && (
                 <button
                   data-testid={`product-customize-${product.id}`}
                   onClick={() => onCustomize(product)}
-                  className="rounded-full border border-espresso/20 px-4 py-2 text-[10px] uppercase tracking-micro text-espresso transition-all duration-300 hover:border-espresso hover:bg-rosemist/50"
+                  className="rounded-full border border-espresso/20 px-3 py-2 text-[9px] uppercase tracking-micro text-espresso transition-all duration-300 hover:border-espresso hover:bg-rosemist/50 sm:px-4 sm:text-[10px]"
                 >
                   Customise
                 </button>
@@ -59,7 +59,7 @@ export default function ProductCard({ product, index = 0, onCustomize }: Props) 
               <button
                 data-testid={`product-add-${product.id}`}
                 onClick={quickAdd}
-                className="rounded-full bg-blush px-4 py-2 text-[10px] font-medium uppercase tracking-micro text-espresso transition-all duration-300 hover:-translate-y-0.5 hover:bg-blushdeep"
+                className="rounded-full bg-blush px-3.5 py-2 text-[9px] font-medium uppercase tracking-micro text-espresso transition-all duration-300 hover:-translate-y-0.5 hover:bg-blushdeep sm:px-4 sm:text-[10px]"
               >
                 Add
               </button>
